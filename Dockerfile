@@ -1,5 +1,12 @@
-# First, build the application in the `/app` directory.
-# See `Dockerfile` for details.
+# Build the Astro frontend
+FROM node:lts-alpine3.22@sha256:b689d4005875ae167178471a7a622ec2909459a3bbb32277260be1971af7a99f AS frontend
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Build the Python application
 FROM ghcr.io/astral-sh/uv:0.11.7-python3.14-trixie-slim@sha256:abc097534bf1c917a8ed6408e28c87cf191560c4da3ced2016bf8b9da74b5831 AS builder
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
@@ -32,6 +39,9 @@ RUN groupadd --system --gid 999 nonroot \
 
 # Copy the application from the builder
 COPY --from=builder --chown=nonroot:nonroot /app /app
+
+# Copy the built frontend
+COPY --from=frontend --chown=nonroot:nonroot /site /app/site
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"

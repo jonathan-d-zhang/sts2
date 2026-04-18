@@ -6,6 +6,6 @@
 !uv.lock
 !.python-version
 !src/
-!site/
 !README.md
 !schema.sql
+!web/
