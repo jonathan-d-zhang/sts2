@@ -19,15 +19,14 @@ def get_pool() -> AsyncConnectionPool:
 
 async def init_db() -> None:
     """Run schema.sql against the database. Safe to call on every startup."""
-    async with await psycopg.AsyncConnection.connect(
-        str(settings.database_url), autocommit=True
-    ) as conn:
+    async with await psycopg.AsyncConnection.connect(str(settings.database_url), autocommit=True) as conn:
         await conn.execute(_SCHEMA)
 
 
 async def open_pool() -> None:
-    global _pool
-    _pool = AsyncConnectionPool(str(settings.database_url))
+    global _pool  # noqa: PLW0603
+    _pool = AsyncConnectionPool(str(settings.database_url), open=False)
+    await _pool.open()
 
 
 async def close_pool() -> None:
