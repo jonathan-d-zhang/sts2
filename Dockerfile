@@ -1,34 +1,45 @@
-FROM debian:bookworm-slim@sha256:13cb01d584d2c23f475c088c168a48f9a08f033a10460572fbfd10912ec5ba7c AS builder
+# First, build the application in the `/app` directory.
+# See `Dockerfile` for details.
+FROM ghcr.io/astral-sh/uv:0.11.7-python3.14-trixie-slim@sha256:abc097534bf1c917a8ed6408e28c87cf191560c4da3ced2016bf8b9da74b5831 AS builder
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:2bcc007f3a8713f54533bd61259966ed0f59846bd2b3d3bac9a7d9790c510599 /uv /usr/local/bin/
+# Omit development dependencies
+ENV UV_NO_DEV=1
 
-WORKDIR /app
-
-# Install deps before source for layer caching
-COPY pyproject.toml uv.lock .python-version ./
-RUN uv sync --frozen --no-dev --no-install-project
-
-COPY src/ ./src/
-RUN uv sync --frozen --no-dev
-
-
-FROM debian:bookworm-slim@sha256:13cb01d584d2c23f475c088c168a48f9a08f033a10460572fbfd10912ec5ba7c
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image; see `standalone.Dockerfile`
+# for an example.
+ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked
 
-# Copy uv-managed Python runtime and the populated venv
-COPY --from=builder /root/.local/share/uv/python /root/.local/share/uv/python
-COPY --from=builder /app/.venv /app/.venv
 
-COPY src/ ./src/
-COPY site/ ./site/
+# Then, use a final image without uv
+FROM python:3.14-slim-bookworm@sha256:e87711ef5c86aaeaa7031718a69db79d334d94c545c709583f651b8185870941
 
+# Setup a non-root user
+RUN groupadd --system --gid 999 nonroot \
+ && useradd --system --gid 999 --uid 999 --create-home nonroot
+
+# Copy the application from the builder
+COPY --from=builder --chown=nonroot:nonroot /app /app
+
+# Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
-EXPOSE 8000
+# Use the non-root user to run our application
+USER nonroot
 
+# Use `/app` as the working directory
+WORKDIR /app
+
+# Run the FastAPI application by default
 CMD ["uvicorn", "sts2.main:app", "--host", "0.0.0.0", "--port", "8000"]
