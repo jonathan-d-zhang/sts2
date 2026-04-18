@@ -223,15 +223,3 @@ class MultiPlayerRun(_RunBase):
 
 
 Run = SinglePlayerRun | MultiPlayerRun
-
-
-def parse_run(path: Path | str) -> SinglePlayerRun | MultiPlayerRun:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if len(data["players"]) == 1:
-        return SinglePlayerRun.model_validate(data)
-    return MultiPlayerRun.model_validate(data)
-
-
-def parse_all_runs(directory: Path | str) -> list[SinglePlayerRun | MultiPlayerRun]:
-    directory = Path(directory)
-    return [parse_run(p) for p in sorted(directory.glob("*.run"))]
