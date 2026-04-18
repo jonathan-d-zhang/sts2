@@ -17,10 +17,64 @@ dev = [
     "pytest>=9.0.3",
 ]
 
+[build-system]
+requires = ["uv_build<0.12"]
+build-backend = "uv_build"
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
 
-[build-system]
-requires = ["uv_build<0.12"]
-build-backend = "uv_build"
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+  [tool.ruff.lint]
+  select = ["ALL"]
+
+  ignore = [
+    "D",     # We will fix them, eventually
+    "FIX",   # https://docs.astral.sh/ruff/rules/#flake8-fixme-fix
+    "G004",  # https://docs.astral.sh/ruff/rules/#flake8-logging-log
+    "N818",  # https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
+    "S101",  # https://docs.astral.sh/ruff/rules/assert/
+    "TC001", # https://docs.astral.sh/ruff/rules/typing-only-first-party-import/
+    "TC002", # https://docs.astral.sh/ruff/rules/typing-only-third-party-import/
+    "TC003", # https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/
+    "TD002", # https://docs.astral.sh/ruff/rules/missing-todo-author/
+    "TD003", # https://docs.astral.sh/ruff/rules/missing-todo-link/
+
+    # Conflicting rules with format (https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules)
+    "COM812",
+    "COM819",
+    "D206",
+    "D300",
+    "E111",
+    "E114",
+    "E117",
+    "ISC001",
+    "ISC002",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "W191",
+  ]
+
+    [tool.ruff.lint.isort]
+    known-first-party = ["sts2"]
+
+    [tool.ruff.lint.per-file-ignores]
+    "docs/*" = ["ANN", "INP"]
+    "tests/*" = [
+      "ANN",
+      "D",
+      "INP",
+      "PLR2004", # https://docs.astral.sh/ruff/rules/magic-value-comparison/
+      "S105",    # https://docs.astral.sh/ruff/rules/hardcoded-password-string/
+      "S106",    # https://docs.astral.sh/ruff/rules/hardcoded-password-func-arg/
+      "S107",    # https://docs.astral.sh/ruff/rules/hardcoded-password-default/
+    ]
+
+    [tool.ruff.lint.pydocstyle]
+    convention = "google"
