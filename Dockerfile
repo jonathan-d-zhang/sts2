@@ -42,5 +42,7 @@ USER nonroot
 # Use `/app` as the working directory
 WORKDIR /app
 
+COPY schema.sql schema.sql
+
 # Run the FastAPI application by default
 CMD ["uvicorn", "sts2:app", "--host", "0.0.0.0", "--port", "8000"]

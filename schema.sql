@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS runs (
+    id BIGSERIAL PRIMARY KEY,
+    ascension INT NOT NULL,
+    win BOOLEAN NOT NULL,
+    build_id TEXT NOT NULL,
+    data JSONB NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decks (
+    id BIGSERIAL PRIMARY KEY,
+    run_id INT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    card_ids TEXT[] NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX ON decks USING gin (card_ids);
