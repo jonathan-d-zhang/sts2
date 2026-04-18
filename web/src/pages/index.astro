@@ -19,6 +19,7 @@
 
       form.query { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
       form.query select { padding: 0.35rem 0.5rem; flex: 1; min-width: 200px; min-height: 120px; }
+      .win-stats { font-size: 0.9rem; margin-top: 0.75rem; }
 
       button { padding: 0.35rem 0.8rem; cursor: pointer; }
 
@@ -153,6 +154,9 @@
           return;
         }
 
+        const pct = data.total > 0 ? Math.round(data.wins / data.total * 100) : 0;
+        const statsHtml = `<p class="win-stats">${data.wins} / ${data.total} wins (${pct}%)</p>`;
+
         const rows = data.items.map(r => `
           <tr>
             <td>${r.id}</td>
@@ -162,7 +166,7 @@
           </tr>
         `).join('');
 
-        container.innerHTML = `
+        container.innerHTML = statsHtml + `
           <table>
             <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Build</th></tr></thead>
             <tbody>${rows}</tbody>

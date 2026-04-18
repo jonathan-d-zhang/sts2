@@ -19,6 +19,8 @@ class RunSummary(BaseModel):
 
 class RunsPage(BaseModel):
     items: list[RunSummary]
+    total: int
+    wins: int
     limit: int
     offset: int
 
@@ -35,7 +37,9 @@ async def list_runs(
     params = ([cards] if cards else []) + [limit, offset]
 
     query = f"""
-        SELECT r.id, r.ascension, r.win, r.build_id
+        SELECT r.id, r.ascension, r.win, r.build_id,
+               COUNT(*) OVER () AS total,
+               SUM(CASE WHEN r.win THEN 1 ELSE 0 END) OVER () AS wins
         FROM runs r
         {where}
         ORDER BY r.id DESC
@@ -46,6 +50,8 @@ async def list_runs(
 
     return RunsPage(
         items=[RunSummary(id=r[0], ascension=r[1], win=r[2], build_id=r[3]) for r in rows],
+        total=rows[0][4] if rows else 0,
+        wins=rows[0][5] if rows else 0,
         limit=limit,
         offset=offset,
     )
