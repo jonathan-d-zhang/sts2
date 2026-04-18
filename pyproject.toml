@@ -1,7 +1,7 @@
 [project]
 name = "sts2"
 version = "0.1.0"
-description = "Add your description here"
+description = "Stats website for Slay the Spire 2"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -15,5 +15,5 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build"]
+requires = ["uv_build<0.12"]
 build-backend = "uv_build"
