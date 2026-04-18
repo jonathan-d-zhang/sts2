@@ -44,8 +44,9 @@
       <button id="open-dialog">Choose file…</button>
 
       <dialog id="upload-dialog">
-        <h3>Upload .run file</h3>
-        <input type="file" id="run-file" accept=".run" />
+        <h3>Upload .run files</h3>
+        <p id="path-hint" style="display:none; font-size:0.85rem; color:#555; margin:0 0 0.75rem;"></p>
+        <input type="file" id="run-file" accept=".run" multiple />
         <div class="actions">
           <button type="button" id="cancel-upload">Cancel</button>
           <button type="button" id="confirm-upload">Upload</button>
@@ -73,27 +74,32 @@
 
       document.getElementById('open-dialog').addEventListener('click', () => {
         document.getElementById('status').textContent = '';
+        const hint = document.getElementById('path-hint');
+        if (navigator.userAgent.includes('Windows')) {
+          hint.textContent = 'Default location: %AppData%\\SlayTheSpire2\\steam';
+          hint.style.display = '';
+        }
         dialog.showModal();
       });
 
       document.getElementById('cancel-upload').addEventListener('click', () => dialog.close());
 
       document.getElementById('confirm-upload').addEventListener('click', async () => {
-        const file = document.getElementById('run-file').files[0];
+        const files = Array.from(document.getElementById('run-file').files);
         const status = document.getElementById('status');
-        if (!file) return;
+        if (files.length === 0) return;
 
         try {
-          const body = await file.text();
-          const resp = await fetch('/api/v1/run', {
+          const runs = await Promise.all(files.map(f => f.text().then(JSON.parse)));
+          const resp = await fetch('/api/v1/runs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body,
+            body: JSON.stringify(runs),
           });
           if (resp.ok) {
-            const { id } = await resp.json();
+            const { ids } = await resp.json();
             status.className = 'ok';
-            status.textContent = `Uploaded — run ID ${id}`;
+            status.textContent = `Uploaded ${ids.length} run${ids.length === 1 ? '' : 's'} — ID${ids.length === 1 ? '' : 's'} ${ids.join(', ')}`;
             dialog.close();
           } else {
             const text = await resp.text();
@@ -130,8 +136,7 @@
       const PAGE_SIZE = 20;
 
       async function fetchRuns(offset = 0) {
-        const select = document.getElementById('cards-select');
-        const cards = Array.from(select.selectedOptions).map(o => o.value);
+        const cards = Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value);
 
         const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
         cards.forEach(c => params.append('cards', c));

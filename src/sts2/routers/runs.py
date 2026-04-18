@@ -60,28 +60,24 @@ async def list_cards() -> list[str]:
     return [r[0] for r in rows]
 
 
-@router.post("/run", status_code=201)
-async def create_run(run: Run) -> dict[str, int]:
+@router.post("/runs", status_code=201)
+async def create_runs(runs: list[Run]) -> dict[str, list[int]]:
+    if not runs:
+        return {"ids": []}
+    placeholders = ", ".join(["(%s, %s, %s, %s)"] * len(runs))
+    run_values = [v for run in runs for v in (run.ascension, run.win, run.build_id, Jsonb(run.model_dump(mode="json")))]
     async with get_pool().connection() as conn, conn.transaction():
-        cur = await conn.execute(
-            """
-                INSERT INTO runs (ascension, win, build_id, data)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id
-                """,
-            (
-                run.ascension,
-                run.win,
-                run.build_id,
-                Jsonb(run.model_dump(mode="json")),
-            ),
-        )
-        run_id = (await cur.fetchone())[0]
-
-        for player in run.players:
-            await conn.execute(
-                "INSERT INTO decks (run_id, card_ids) VALUES (%s, %s)",
-                (run_id, [card.id for card in player.deck]),
-            )
-
-    return {"id": run_id}
+        query = f"INSERT INTO runs (ascension, win, build_id, data) VALUES {placeholders} RETURNING id"  # noqa: S608
+        ids = [row[0] for row in await (await conn.execute(query, run_values)).fetchall()]
+        deck_params = [
+            (run_id, [card.id for card in player.deck])
+            for run_id, run in zip(ids, runs, strict=True)
+            for player in run.players
+        ]
+        if deck_params:
+            async with conn.cursor() as cur:
+                await cur.executemany(
+                    "INSERT INTO decks (run_id, card_ids) VALUES (%s, %s)",
+                    deck_params,
+                )
+    return {"ids": ids}
