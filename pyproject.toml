@@ -8,3 +8,12 @@ dependencies = [
     "fastapi[standard]>=0.128.8",
     "uvicorn>=0.39.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
