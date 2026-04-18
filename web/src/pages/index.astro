@@ -1,17 +1,192 @@
 ---
-
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <title>STS2 Run History</title>
+    <style>
+      body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+      h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
+      section { margin-bottom: 2rem; }
+
+      dialog { border: 1px solid #ccc; border-radius: 6px; padding: 1.5rem; min-width: 320px; }
+      dialog h3 { margin-top: 0; }
+      dialog input[type="file"] { display: block; margin: 1rem 0; }
+      dialog .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+      form.query { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+      form.query select { padding: 0.35rem 0.5rem; flex: 1; min-width: 200px; min-height: 120px; }
+
+      button { padding: 0.35rem 0.8rem; cursor: pointer; }
+
+      #status { margin-top: 0.75rem; font-size: 0.9rem; }
+      #status.error { color: #c00; }
+      #status.ok { color: #080; }
+
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+      th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
+      th { background: #f5f5f5; }
+      .win-yes { color: #080; }
+      .win-no  { color: #c00; }
+
+      .pagination { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>STS2 Run History</h1>
+
+    <!-- ── Upload ── -->
+    <section>
+      <h2>Upload run</h2>
+      <button id="open-dialog">Choose file…</button>
+
+      <dialog id="upload-dialog">
+        <h3>Upload .run file</h3>
+        <input type="file" id="run-file" accept=".run" />
+        <div class="actions">
+          <button type="button" id="cancel-upload">Cancel</button>
+          <button type="button" id="confirm-upload">Upload</button>
+        </div>
+      </dialog>
+
+      <p id="status"></p>
+    </section>
+
+    <!-- ── Query ── -->
+    <section>
+      <h2>Browse runs</h2>
+      <form class="query" id="query-form">
+        <label for="cards-select">Cards</label>
+        <select id="cards-select" multiple></select>
+        <button type="submit">Search</button>
+      </form>
+
+      <div id="results"></div>
+    </section>
+
+    <script>
+      // ── Upload dialog ──────────────────────────────────────────
+      const dialog = document.getElementById('upload-dialog');
+
+      document.getElementById('open-dialog').addEventListener('click', () => {
+        document.getElementById('status').textContent = '';
+        dialog.showModal();
+      });
+
+      document.getElementById('cancel-upload').addEventListener('click', () => dialog.close());
+
+      document.getElementById('confirm-upload').addEventListener('click', async () => {
+        const file = document.getElementById('run-file').files[0];
+        const status = document.getElementById('status');
+        if (!file) return;
+
+        try {
+          const body = await file.text();
+          const resp = await fetch('/api/v1/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+          if (resp.ok) {
+            const { id } = await resp.json();
+            status.className = 'ok';
+            status.textContent = `Uploaded — run ID ${id}`;
+            dialog.close();
+          } else {
+            const text = await resp.text();
+            status.className = 'error';
+            status.textContent = `Upload failed (${resp.status}): ${text}`;
+            dialog.close();
+          }
+        } catch (err) {
+          status.className = 'error';
+          status.textContent = `Upload failed: ${err.message}`;
+          dialog.close();
+        }
+      });
+
+      // ── Cards select ──────────────────────────────────────────
+      async function populateCards() {
+        const select = document.getElementById('cards-select');
+        try {
+          const cards = await (await fetch('/api/v1/cards')).json();
+          select.innerHTML = cards.map(c => `<option value="${c}">${c}</option>`).join('');
+        } catch {
+          // leave empty — search still works with no selection
+        }
+      }
+      populateCards();
+
+      // also refresh after a successful upload so new cards appear
+      document.getElementById('confirm-upload').addEventListener('click', () => {
+        setTimeout(populateCards, 500);
+      }, { capture: true });
+
+      // ── Query form ─────────────────────────────────────────────
+      let currentOffset = 0;
+      const PAGE_SIZE = 20;
+
+      async function fetchRuns(offset = 0) {
+        const select = document.getElementById('cards-select');
+        const cards = Array.from(select.selectedOptions).map(o => o.value);
+
+        const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+        cards.forEach(c => params.append('cards', c));
+
+        const resp = await fetch(`/api/v1/runs?${params}`);
+        if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+        return resp.json();
+      }
+
+      function renderResults(data, offset) {
+        const container = document.getElementById('results');
+        if (data.items.length === 0) {
+          container.innerHTML = '<p>No runs found.</p>';
+          return;
+        }
+
+        const rows = data.items.map(r => `
+          <tr>
+            <td>${r.id}</td>
+            <td>${r.ascension}</td>
+            <td class="${r.win ? 'win-yes' : 'win-no'}">${r.win ? 'Win' : 'Loss'}</td>
+            <td>${r.build_id}</td>
+          </tr>
+        `).join('');
+
+        container.innerHTML = `
+          <table>
+            <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Build</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="pagination">
+            <button id="prev-btn" ${offset === 0 ? 'disabled' : ''}>← Prev</button>
+            <span>Showing ${offset + 1}–${offset + data.items.length}</span>
+            <button id="next-btn" ${data.items.length < PAGE_SIZE ? 'disabled' : ''}>Next →</button>
+          </div>
+        `;
+
+        document.getElementById('prev-btn').addEventListener('click', () => loadPage(offset - PAGE_SIZE));
+        document.getElementById('next-btn').addEventListener('click', () => loadPage(offset + PAGE_SIZE));
+      }
+
+      async function loadPage(offset) {
+        currentOffset = offset;
+        try {
+          const data = await fetchRuns(offset);
+          renderResults(data, offset);
+        } catch (err) {
+          document.getElementById('results').innerHTML = `<p class="error">Error: ${err.message}</p>`;
+        }
+      }
+
+      document.getElementById('query-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loadPage(0);
+      });
+    </script>
+  </body>
 </html>
