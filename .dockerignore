@@ -1,0 +1,9 @@
+# Ignore everything by default
+*
+
+# Allow only what the Dockerfile explicitly needs
+!pyproject.toml
+!uv.lock
+!.python-version
+!src/
+!site/
