@@ -1,4 +1,4 @@
-FROM debian:buster-slim@sha256:32220ea48be72979c9f0810d69f3de9145c9584c2ee966c6ec26edbcf4640c0b AS builder
+FROM debian:bookworm-slim@sha256:13cb01d584d2c23f475c088c168a48f9a08f033a10460572fbfd10912ec5ba7c AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:2bcc007f3a8713f54533bd61259966ed0f59846bd2b3d3bac9a7d9790c510599 /uv /usr/local/bin/
 
@@ -12,7 +12,7 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 
-FROM debian:buster-slim@sha256:32220ea48be72979c9f0810d69f3de9145c9584c2ee966c6ec26edbcf4640c0b
+FROM debian:bookworm-slim@sha256:13cb01d584d2c23f475c088c168a48f9a08f033a10460572fbfd10912ec5ba7c
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
