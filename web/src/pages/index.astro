@@ -18,7 +18,8 @@
       dialog .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
       form.query { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
-      form.query select { padding: 0.35rem 0.5rem; flex: 1; min-width: 200px; min-height: 120px; }
+      #cards-select { padding: 0.35rem 0.5rem; flex: 1; min-width: 200px; min-height: 120px; }
+      #mode-select { padding: 0.35rem 0.5rem; }
       .win-stats { font-size: 0.9rem; margin-top: 0.75rem; }
 
       button { padding: 0.35rem 0.8rem; cursor: pointer; }
@@ -63,7 +64,15 @@
       <form class="query" id="query-form">
         <label for="cards-select">Cards</label>
         <select id="cards-select" multiple></select>
-        <button type="submit">Search</button>
+        <div>
+          <label for="mode-select">Mode</label><br />
+          <select id="mode-select">
+            <option value="single">Single player</option>
+            <option value="multi">Multiplayer</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <button type="submit" style="align-self:flex-end">Search</button>
       </form>
 
       <div id="results"></div>
@@ -138,8 +147,9 @@
 
       async function fetchRuns(offset = 0) {
         const cards = Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value);
+        const mode = document.getElementById('mode-select').value;
 
-        const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+        const params = new URLSearchParams({ limit: PAGE_SIZE, offset, mode });
         cards.forEach(c => params.append('cards', c));
 
         const resp = await fetch(`/api/v1/runs?${params}`);

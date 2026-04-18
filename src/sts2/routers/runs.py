@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from psycopg.types.json import Jsonb
@@ -28,13 +28,25 @@ class RunsPage(BaseModel):
 @router.get("/runs")
 async def list_runs(
     cards: Annotated[list[str] | None, Query()] = None,
+    mode: Annotated[Literal["single", "multi", "both"], Query()] = "single",
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> RunsPage:
     cards = cards or []
-    # GIN index on decks.card_ids makes the containment check efficient.
-    where = "WHERE EXISTS (SELECT 1 FROM decks d WHERE d.run_id = r.id AND d.card_ids @> %s::text[])" if cards else ""
-    params = ([cards] if cards else []) + [limit, offset]
+    conditions: list[str] = []
+    params: list = []
+
+    if cards:
+        # GIN index on decks.card_ids makes the containment check efficient.
+        conditions.append("EXISTS (SELECT 1 FROM decks d WHERE d.run_id = r.id AND d.card_ids @> %s::text[])")
+        params.append(cards)
+    if mode == "single":
+        conditions.append("jsonb_array_length(r.data->'players') = 1")
+    elif mode == "multi":
+        conditions.append("jsonb_array_length(r.data->'players') > 1")
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params += [limit, offset]
 
     query = f"""
         SELECT r.id, r.ascension, r.win, r.build_id,
