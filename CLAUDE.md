@@ -12,6 +12,13 @@ uv run uvicorn sts2:app --reload  # run the dev server
 docker compose up --build # run app + postgres locally
 ```
 
+```bash
+# web/ — Astro frontend (run from web/)
+npm install          # install JS dependencies
+npm run dev          # dev server with HMR
+npm run build        # build → outputs to ../site/
+```
+
 Pre-commit hooks run ruff-format and ruff on every commit. To run manually:
 ```bash
 uv run ruff check --fix --select I .
