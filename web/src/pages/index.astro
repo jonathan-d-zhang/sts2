@@ -76,6 +76,7 @@ import '../styles/global.css';
               </select>
             </div>
             <button type="submit" id="search-btn" class="btn btn-primary">Search</button>
+            <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
           </form>
 
           <div id="results" class="mt-4"></div>
@@ -283,6 +284,15 @@ import '../styles/global.css';
 
       document.getElementById('query-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        loadPage(0);
+      });
+
+      document.getElementById('clear-btn').addEventListener('click', () => {
+        Array.from(document.getElementById('cards-select').options).forEach(o => { o.selected = false; });
+        document.getElementById('cards-search').value = '';
+        Array.from(document.getElementById('cards-select').options).forEach(o => { o.hidden = false; });
+        document.getElementById('mode-select').value = 'single';
+        document.getElementById('ascension-select').value = '';
         loadPage(0);
       });
 
