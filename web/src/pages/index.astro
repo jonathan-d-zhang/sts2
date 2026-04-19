@@ -46,10 +46,14 @@ import '../styles/global.css';
         <div class="card-body">
           <h2 class="card-title">Browse runs</h2>
           <form id="query-form" class="flex flex-wrap gap-4 items-end">
-            <div class="form-control flex-1 min-w-48">
+            <div class="form-control flex-1 min-w-48 relative">
               <label class="label"><span class="label-text">Cards</span></label>
-              <input type="text" id="cards-search" placeholder="Filter cards…" class="input input-bordered input-sm w-full mb-1" />
-              <select id="cards-select" multiple class="select select-bordered h-32"></select>
+              <div id="card-filter-box" class="input input-bordered flex flex-wrap gap-1 items-center h-auto min-h-10 py-1 px-2 cursor-text">
+                <div id="card-badges" class="flex flex-wrap gap-1"></div>
+                <input type="text" id="cards-search" placeholder="Add card…" autocomplete="off"
+                       class="flex-1 min-w-20 bg-transparent border-none outline-none text-sm h-6" />
+              </div>
+              <ul id="cards-dropdown" class="hidden absolute top-full left-0 right-0 z-20 bg-base-100 border border-base-300 rounded-box shadow-lg max-h-48 overflow-y-auto mt-1 p-1 menu menu-sm"></ul>
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">Mode</span></label>
@@ -178,26 +182,63 @@ import '../styles/global.css';
         }
       });
 
-      // ── Cards select ──────────────────────────────────────────
+      // ── Cards tag-input ───────────────────────────────────────
+      let allCards = [];
+      let selectedCardIds = new Set();
+
       async function populateCards() {
-        const select = document.getElementById('cards-select');
-        select.innerHTML = '<option disabled>Loading…</option>';
         try {
-          const cards = await (await fetch('/api/v1/cards')).json();
-          select.innerHTML = cards.map(c => `<option value="${esc(c)}">${esc(displayCard(c))}</option>`).join('');
+          allCards = await fetch('/api/v1/cards').then(r => r.json());
         } catch {
-          select.innerHTML = '';
+          allCards = [];
         }
       }
-      const { cards: initialCards, offset: initialOffset } = restoreFilters();
-      populateCards().then(() => {
-        if (initialCards.length > 0) {
-          Array.from(document.getElementById('cards-select').options).forEach(o => {
-            o.selected = initialCards.includes(o.value);
+
+      function renderCardBadges() {
+        const badges = document.getElementById('card-badges');
+        badges.innerHTML = Array.from(selectedCardIds).map(id => `
+          <span class="badge badge-primary gap-1 text-xs whitespace-nowrap">
+            ${esc(displayCard(id))}
+            <button type="button" data-remove="${esc(id)}" class="hover:opacity-70 cursor-pointer">✕</button>
+          </span>`).join('');
+        badges.querySelectorAll('button[data-remove]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedCardIds.delete(btn.dataset.remove);
+            renderCardBadges();
+            loadPage(0);
           });
-        }
-        loadPage(initialOffset);
-      });
+        });
+      }
+
+      function renderCardDropdown(q) {
+        const dropdown = document.getElementById('cards-dropdown');
+        const filtered = allCards.filter(c =>
+          !selectedCardIds.has(c) &&
+          (q === '' || c.toLowerCase().includes(q) || displayCard(c).toLowerCase().includes(q))
+        );
+        if (filtered.length === 0) { dropdown.classList.add('hidden'); return; }
+        dropdown.innerHTML = filtered.map(c =>
+          `<li><a class="text-sm" data-card-id="${esc(c)}">${esc(displayCard(c))}</a></li>`
+        ).join('');
+        dropdown.querySelectorAll('[data-card-id]').forEach(el => {
+          el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectedCardIds.add(el.dataset.cardId);
+            renderCardBadges();
+            document.getElementById('cards-search').value = '';
+            renderCardDropdown('');
+            loadPage(0);
+          });
+        });
+        dropdown.classList.remove('hidden');
+      }
+
+      const cardsSearchInput = document.getElementById('cards-search');
+      document.getElementById('card-filter-box').addEventListener('click', () => cardsSearchInput.focus());
+      cardsSearchInput.addEventListener('focus', () => renderCardDropdown(cardsSearchInput.value.toLowerCase()));
+      cardsSearchInput.addEventListener('input', (e) => renderCardDropdown(e.target.value.toLowerCase()));
+      cardsSearchInput.addEventListener('blur', () => setTimeout(() => document.getElementById('cards-dropdown').classList.add('hidden'), 150));
 
       async function populateAscensionCounts() {
         try {
@@ -215,11 +256,11 @@ import '../styles/global.css';
       }
       populateAscensionCounts();
 
-      document.getElementById('cards-search').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        Array.from(document.getElementById('cards-select').options).forEach(o => {
-          o.hidden = !o.value.toLowerCase().includes(q);
-        });
+      const { cards: initialCards, offset: initialOffset } = restoreFilters();
+      populateCards().then(() => {
+        initialCards.forEach(c => selectedCardIds.add(c));
+        renderCardBadges();
+        loadPage(initialOffset);
       });
 
       // also refresh after a successful upload so new cards appear
@@ -231,7 +272,7 @@ import '../styles/global.css';
       const PAGE_SIZE = 20;
 
       async function fetchRuns(offset = 0) {
-        const cards = Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value);
+        const cards = Array.from(selectedCardIds);
         const mode = document.getElementById('mode-select').value;
         const ascension = document.getElementById('ascension-select').value;
 
@@ -325,9 +366,6 @@ import '../styles/global.css';
         row.after(detailRow);
         try {
           const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
-          const selectedCards = new Set(
-            Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value)
-          );
           const players = run.players.map(p => {
             const groups = p.deck.reduce((acc, c) => {
               if (acc.length && acc[acc.length - 1].id === c.id) acc[acc.length - 1].n++;
@@ -335,7 +373,7 @@ import '../styles/global.css';
               return acc;
             }, []);
             const cardBtns = groups.map(({ id, n }) => {
-              const active = selectedCards.has(id) ? 'btn-primary' : 'btn-outline';
+              const active = selectedCardIds.has(id) ? 'btn-primary' : 'btn-outline';
               const label = n > 1 ? `${esc(displayCard(id))} ×${n}` : esc(displayCard(id));
               return `<button class="btn btn-xs ${active}" data-card-id="${esc(id)}">${label}</button>`;
             }).join('');
@@ -348,14 +386,16 @@ import '../styles/global.css';
           detailRow.querySelectorAll('button[data-card-id]').forEach(btn => {
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
-              const opt = Array.from(document.getElementById('cards-select').options)
-                .find(o => o.value === btn.dataset.cardId);
-              if (opt) {
-                opt.selected = !opt.selected;
-                btn.classList.toggle('btn-primary', opt.selected);
-                btn.classList.toggle('btn-outline', !opt.selected);
-                loadPage(0);
+              const cardId = btn.dataset.cardId;
+              if (selectedCardIds.has(cardId)) {
+                selectedCardIds.delete(cardId);
+              } else {
+                selectedCardIds.add(cardId);
               }
+              renderCardBadges();
+              btn.classList.toggle('btn-primary', selectedCardIds.has(cardId));
+              btn.classList.toggle('btn-outline', !selectedCardIds.has(cardId));
+              loadPage(0);
             });
           });
         } catch {
@@ -383,9 +423,9 @@ import '../styles/global.css';
       });
 
       document.getElementById('clear-btn').addEventListener('click', () => {
-        Array.from(document.getElementById('cards-select').options).forEach(o => { o.selected = false; });
+        selectedCardIds.clear();
+        renderCardBadges();
         document.getElementById('cards-search').value = '';
-        Array.from(document.getElementById('cards-select').options).forEach(o => { o.hidden = false; });
         document.getElementById('mode-select').value = 'single';
         document.getElementById('ascension-select').value = '';
         loadPage(0);
