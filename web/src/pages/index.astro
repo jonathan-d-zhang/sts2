@@ -58,6 +58,23 @@ import '../styles/global.css';
                 <option value="both">Both</option>
               </select>
             </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Ascension</span></label>
+              <select id="ascension-select" class="select select-bordered">
+                <option value="">All</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </div>
             <button type="submit" id="search-btn" class="btn btn-primary">Search</button>
           </form>
 
@@ -176,9 +193,11 @@ import '../styles/global.css';
       async function fetchRuns(offset = 0) {
         const cards = Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value);
         const mode = document.getElementById('mode-select').value;
+        const ascension = document.getElementById('ascension-select').value;
 
         const params = new URLSearchParams({ limit: PAGE_SIZE, offset, mode });
         cards.forEach(c => params.append('cards', c));
+        if (ascension !== '') params.append('ascension', ascension);
 
         const resp = await fetch(`/api/v1/runs?${params}`);
         if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);

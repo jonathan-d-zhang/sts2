@@ -29,6 +29,7 @@ class RunsPage(BaseModel):
 async def list_runs(
     cards: Annotated[list[str] | None, Query()] = None,
     mode: Annotated[Literal["single", "multi", "both"], Query()] = "single",
+    ascension: Annotated[int | None, Query(ge=0, le=10)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> RunsPage:
@@ -44,6 +45,9 @@ async def list_runs(
         conditions.append("jsonb_array_length(r.data->'players') = 1")
     elif mode == "multi":
         conditions.append("jsonb_array_length(r.data->'players') > 1")
+    if ascension is not None:
+        conditions.append("r.ascension = %s")
+        params.append(ascension)
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     params += [limit, offset]
