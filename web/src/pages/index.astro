@@ -28,6 +28,7 @@ import '../styles/global.css';
       <dialog id="upload-dialog" class="modal">
         <div class="modal-box">
           <h3 class="font-bold text-lg">Upload .run files</h3>
+          <p id="upload-error" class="text-error text-sm mt-1 hidden"></p>
           <div id="drop-zone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors my-3">
             <p id="drop-label" class="text-base-content/60 text-sm">Drag &amp; drop .run files here, or <span class="text-primary underline">click to browse</span></p>
             <input type="file" id="run-file" accept=".run" multiple class="hidden" />
@@ -126,6 +127,9 @@ import '../styles/global.css';
 
       document.getElementById('open-dialog').addEventListener('click', () => {
         document.getElementById('status').textContent = '';
+        const uploadError = document.getElementById('upload-error');
+        uploadError.textContent = '';
+        uploadError.classList.add('hidden');
         selectedFiles = [];
         updateDropLabel();
         dialog.showModal();
@@ -136,7 +140,11 @@ import '../styles/global.css';
       document.getElementById('confirm-upload').addEventListener('click', async () => {
         const files = selectedFiles;
         const status = document.getElementById('status');
+        const uploadError = document.getElementById('upload-error');
         if (files.length === 0) return;
+
+        uploadError.textContent = '';
+        uploadError.classList.add('hidden');
 
         try {
           const runs = await Promise.all(files.map(f => f.text().then(JSON.parse)));
@@ -152,14 +160,12 @@ import '../styles/global.css';
             dialog.close();
           } else {
             const text = await resp.text();
-            status.className = 'mt-3 text-sm text-error';
-            status.textContent = `Upload failed (${resp.status}): ${text}`;
-            dialog.close();
+            uploadError.textContent = `Upload failed (${resp.status}): ${text}`;
+            uploadError.classList.remove('hidden');
           }
         } catch (err) {
-          status.className = 'mt-3 text-sm text-error';
-          status.textContent = `Upload failed: ${err.message}`;
-          dialog.close();
+          uploadError.textContent = `Upload failed: ${err.message}`;
+          uploadError.classList.remove('hidden');
         }
       });
 
