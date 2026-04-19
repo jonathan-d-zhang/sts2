@@ -215,7 +215,7 @@ import '../styles/global.css';
         const statsHtml = `<p class="text-sm mb-3">${data.wins} / ${data.total} wins (${pct}%)</p>`;
 
         const rows = data.items.map(r => `
-          <tr>
+          <tr class="cursor-pointer" data-run-id="${r.id}">
             <td>${r.id}</td>
             <td>${r.ascension}</td>
             <td><span class="badge ${r.win ? 'badge-success' : 'badge-error'}">${r.win ? 'Win' : 'Loss'}</span></td>
@@ -239,6 +239,31 @@ import '../styles/global.css';
 
         document.getElementById('prev-btn').addEventListener('click', () => loadPage(offset - PAGE_SIZE));
         document.getElementById('next-btn').addEventListener('click', () => loadPage(offset + PAGE_SIZE));
+
+        document.querySelectorAll('tbody tr[data-run-id]').forEach(row => {
+          row.addEventListener('click', async () => {
+            const runId = row.dataset.runId;
+            const existing = document.getElementById(`detail-${runId}`);
+            if (existing) { existing.remove(); return; }
+            document.querySelectorAll('tr.detail-row').forEach(r => r.remove());
+            const detailRow = document.createElement('tr');
+            detailRow.id = `detail-${runId}`;
+            detailRow.className = 'detail-row';
+            detailRow.innerHTML = '<td colspan="4" class="py-2"><span class="loading loading-spinner loading-xs"></span></td>';
+            row.after(detailRow);
+            try {
+              const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
+              const players = run.players.map(p => `
+                <div class="mb-2">
+                  <span class="font-medium">${esc(p.character)}</span>
+                  <div class="text-xs text-base-content/60 mt-1">${p.deck.map(c => esc(c.id)).join(', ')}</div>
+                </div>`).join('');
+              detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${players}</td>`;
+            } catch {
+              detailRow.innerHTML = '<td colspan="4" class="text-error text-sm">Failed to load details</td>';
+            }
+          });
+        });
       }
 
       async function loadPage(offset) {

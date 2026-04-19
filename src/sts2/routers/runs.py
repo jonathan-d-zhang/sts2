@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
@@ -71,6 +72,15 @@ async def list_runs(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/runs/{run_id}")
+async def get_run(run_id: int) -> JSONResponse:
+    async with get_pool().connection() as conn:
+        row = await (await conn.execute("SELECT data FROM runs WHERE id = %s", [run_id])).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404)
+    return JSONResponse(content=row[0])
 
 
 @router.get("/cards")
