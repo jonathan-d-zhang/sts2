@@ -28,7 +28,6 @@ import '../styles/global.css';
       <dialog id="upload-dialog" class="modal">
         <div class="modal-box">
           <h3 class="font-bold text-lg">Upload .run files</h3>
-          <p id="path-hint" class="text-sm text-base-content/60 mt-1 mb-2 hidden"></p>
           <input type="file" id="run-file" accept=".run" multiple class="file-input file-input-bordered w-full my-3" />
           <div class="modal-action">
             <button type="button" id="cancel-upload" class="btn btn-ghost">Cancel</button>
@@ -69,11 +68,6 @@ import '../styles/global.css';
 
       document.getElementById('open-dialog').addEventListener('click', () => {
         document.getElementById('status').textContent = '';
-        const hint = document.getElementById('path-hint');
-        if (navigator.userAgent.includes('Windows')) {
-          hint.textContent = 'Default location: %AppData%\\SlayTheSpire2\\steam';
-          hint.classList.remove('hidden');
-        }
         dialog.showModal();
       });
 
