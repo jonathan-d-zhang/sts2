@@ -44,6 +44,7 @@ import '../styles/global.css';
           <form id="query-form" class="flex flex-wrap gap-4 items-end">
             <div class="form-control flex-1 min-w-48">
               <label class="label"><span class="label-text">Cards</span></label>
+              <input type="text" id="cards-search" placeholder="Filter cards…" class="input input-bordered input-sm w-full mb-1" />
               <select id="cards-select" multiple class="select select-bordered h-32"></select>
             </div>
             <div class="form-control">
@@ -114,6 +115,13 @@ import '../styles/global.css';
         }
       }
       populateCards();
+
+      document.getElementById('cards-search').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        Array.from(document.getElementById('cards-select').options).forEach(o => {
+          o.hidden = !o.value.toLowerCase().includes(q);
+        });
+      });
 
       // also refresh after a successful upload so new cards appear
       document.getElementById('confirm-upload').addEventListener('click', () => {
