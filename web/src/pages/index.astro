@@ -166,11 +166,12 @@ import '../styles/global.css';
       // ── Cards select ──────────────────────────────────────────
       async function populateCards() {
         const select = document.getElementById('cards-select');
+        select.innerHTML = '<option disabled>Loading…</option>';
         try {
           const cards = await (await fetch('/api/v1/cards')).json();
           select.innerHTML = cards.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
         } catch {
-          // leave empty — search still works with no selection
+          select.innerHTML = '';
         }
       }
       const { cards: initialCards, offset: initialOffset } = restoreFilters();
