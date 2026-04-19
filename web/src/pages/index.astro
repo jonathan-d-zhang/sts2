@@ -175,6 +175,22 @@ import '../styles/global.css';
       }
       populateCards();
 
+      async function populateAscensionCounts() {
+        try {
+          const data = await fetch('/api/v1/ascensions').then(r => r.json());
+          const countMap = Object.fromEntries(data.map(d => [String(d.ascension), d.count]));
+          Array.from(document.getElementById('ascension-select').options).forEach(o => {
+            if (o.value !== '') {
+              const count = countMap[o.value];
+              o.textContent = count !== undefined ? `${o.value} (${count})` : o.value;
+            }
+          });
+        } catch {
+          // leave options as-is
+        }
+      }
+      populateAscensionCounts();
+
       document.getElementById('cards-search').addEventListener('input', (e) => {
         const q = e.target.value.toLowerCase();
         Array.from(document.getElementById('cards-select').options).forEach(o => {

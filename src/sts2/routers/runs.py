@@ -83,6 +83,15 @@ async def get_run(run_id: int) -> JSONResponse:
     return JSONResponse(content=row[0])
 
 
+@router.get("/ascensions")
+async def list_ascensions() -> list[dict[str, int]]:
+    async with get_pool().connection() as conn:
+        rows = await (
+            await conn.execute("SELECT ascension, COUNT(*)::int FROM runs GROUP BY ascension ORDER BY ascension")
+        ).fetchall()
+    return [{"ascension": r[0], "count": r[1]} for r in rows]
+
+
 @router.get("/cards")
 async def list_cards() -> list[str]:
     async with get_pool().connection() as conn:
