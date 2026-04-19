@@ -1,82 +1,67 @@
 ---
+import '../styles/global.css';
 ---
 
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width" />
     <title>STS2 Run History</title>
-    <style>
-      body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-      h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
-      section { margin-bottom: 2rem; }
-
-      dialog { border: 1px solid #ccc; border-radius: 6px; padding: 1.5rem; min-width: 320px; }
-      dialog h3 { margin-top: 0; }
-      dialog input[type="file"] { display: block; margin: 1rem 0; }
-      dialog .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-
-      form.query { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
-      #cards-select { padding: 0.35rem 0.5rem; flex: 1; min-width: 200px; min-height: 120px; }
-      #mode-select { padding: 0.35rem 0.5rem; }
-      .win-stats { font-size: 0.9rem; margin-top: 0.75rem; }
-
-      button { padding: 0.35rem 0.8rem; cursor: pointer; }
-
-      #status { margin-top: 0.75rem; font-size: 0.9rem; }
-      #status.error { color: #c00; }
-      #status.ok { color: #080; }
-
-      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-      th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
-      th { background: #f5f5f5; }
-      .win-yes { color: #080; }
-      .win-no  { color: #c00; }
-
-      .pagination { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem; font-size: 0.9rem; }
-    </style>
   </head>
-  <body>
-    <h1>STS2 Run History</h1>
+  <body class="bg-base-200 min-h-screen">
+    <div class="container mx-auto max-w-4xl px-4 py-8">
+      <h1 class="text-3xl font-bold mb-6">STS2 Run History</h1>
 
-    <!-- ── Upload ── -->
-    <section>
-      <h2>Upload run</h2>
-      <button id="open-dialog">Choose file…</button>
-
-      <dialog id="upload-dialog">
-        <h3>Upload .run files</h3>
-        <p id="path-hint" style="display:none; font-size:0.85rem; color:#555; margin:0 0 0.75rem;"></p>
-        <input type="file" id="run-file" accept=".run" multiple />
-        <div class="actions">
-          <button type="button" id="cancel-upload">Cancel</button>
-          <button type="button" id="confirm-upload">Upload</button>
+      <!-- ── Upload ── -->
+      <div class="card bg-base-100 shadow mb-6">
+        <div class="card-body">
+          <h2 class="card-title">Upload run</h2>
+          <div>
+            <button class="btn btn-primary" id="open-dialog">Choose file…</button>
+            <p id="status" class="mt-3 text-sm"></p>
+          </div>
         </div>
+      </div>
+
+      <!-- ── Upload modal ── -->
+      <dialog id="upload-dialog" class="modal">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg">Upload .run files</h3>
+          <p id="path-hint" class="text-sm text-base-content/60 mt-1 mb-2 hidden"></p>
+          <input type="file" id="run-file" accept=".run" multiple class="file-input file-input-bordered w-full my-3" />
+          <div class="modal-action">
+            <button type="button" id="cancel-upload" class="btn btn-ghost">Cancel</button>
+            <button type="button" id="confirm-upload" class="btn btn-primary">Upload</button>
+          </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
       </dialog>
 
-      <p id="status"></p>
-    </section>
+      <!-- ── Browse ── -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">Browse runs</h2>
+          <form id="query-form" class="flex flex-wrap gap-4 items-end">
+            <div class="form-control flex-1 min-w-48">
+              <label class="label"><span class="label-text">Cards</span></label>
+              <select id="cards-select" multiple class="select select-bordered h-32"></select>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Mode</span></label>
+              <select id="mode-select" class="select select-bordered">
+                <option value="single">Single player</option>
+                <option value="multi">Multiplayer</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Search</button>
+          </form>
 
-    <!-- ── Query ── -->
-    <section>
-      <h2>Browse runs</h2>
-      <form class="query" id="query-form">
-        <label for="cards-select">Cards</label>
-        <select id="cards-select" multiple></select>
-        <div>
-          <label for="mode-select">Mode</label><br />
-          <select id="mode-select">
-            <option value="single">Single player</option>
-            <option value="multi">Multiplayer</option>
-            <option value="both">Both</option>
-          </select>
+          <div id="results" class="mt-4"></div>
         </div>
-        <button type="submit" style="align-self:flex-end">Search</button>
-      </form>
-
-      <div id="results"></div>
-    </section>
+      </div>
+    </div>
 
     <script>
       // ── Upload dialog ──────────────────────────────────────────
@@ -87,7 +72,7 @@
         const hint = document.getElementById('path-hint');
         if (navigator.userAgent.includes('Windows')) {
           hint.textContent = 'Default location: %AppData%\\SlayTheSpire2\\steam';
-          hint.style.display = '';
+          hint.classList.remove('hidden');
         }
         dialog.showModal();
       });
@@ -108,17 +93,17 @@
           });
           if (resp.ok) {
             const { ids } = await resp.json();
-            status.className = 'ok';
+            status.className = 'mt-3 text-sm text-success';
             status.textContent = `Uploaded ${ids.length} run${ids.length === 1 ? '' : 's'} — ID${ids.length === 1 ? '' : 's'} ${ids.join(', ')}`;
             dialog.close();
           } else {
             const text = await resp.text();
-            status.className = 'error';
+            status.className = 'mt-3 text-sm text-error';
             status.textContent = `Upload failed (${resp.status}): ${text}`;
             dialog.close();
           }
         } catch (err) {
-          status.className = 'error';
+          status.className = 'mt-3 text-sm text-error';
           status.textContent = `Upload failed: ${err.message}`;
           dialog.close();
         }
@@ -160,31 +145,33 @@
       function renderResults(data, offset) {
         const container = document.getElementById('results');
         if (data.items.length === 0) {
-          container.innerHTML = '<p>No runs found.</p>';
+          container.innerHTML = '<p class="text-base-content/60">No runs found.</p>';
           return;
         }
 
         const pct = data.total > 0 ? Math.round(data.wins / data.total * 100) : 0;
-        const statsHtml = `<p class="win-stats">${data.wins} / ${data.total} wins (${pct}%)</p>`;
+        const statsHtml = `<p class="text-sm mb-3">${data.wins} / ${data.total} wins (${pct}%)</p>`;
 
         const rows = data.items.map(r => `
           <tr>
             <td>${r.id}</td>
             <td>${r.ascension}</td>
-            <td class="${r.win ? 'win-yes' : 'win-no'}">${r.win ? 'Win' : 'Loss'}</td>
+            <td class="${r.win ? 'text-success font-medium' : 'text-error font-medium'}">${r.win ? 'Win' : 'Loss'}</td>
             <td>${r.build_id}</td>
           </tr>
         `).join('');
 
         container.innerHTML = statsHtml + `
-          <table>
-            <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Build</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <div class="pagination">
-            <button id="prev-btn" ${offset === 0 ? 'disabled' : ''}>← Prev</button>
-            <span>Showing ${offset + 1}–${offset + data.items.length}</span>
-            <button id="next-btn" ${data.items.length < PAGE_SIZE ? 'disabled' : ''}>Next →</button>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra">
+              <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Build</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="flex gap-2 items-center mt-3 text-sm">
+            <button id="prev-btn" class="btn btn-sm btn-ghost" ${offset === 0 ? 'disabled' : ''}>← Prev</button>
+            <span class="text-base-content/60">Showing ${offset + 1}–${offset + data.items.length}</span>
+            <button id="next-btn" class="btn btn-sm btn-ghost" ${data.items.length < PAGE_SIZE ? 'disabled' : ''}>Next →</button>
           </div>
         `;
 
@@ -198,7 +185,7 @@
           const data = await fetchRuns(offset);
           renderResults(data, offset);
         } catch (err) {
-          document.getElementById('results').innerHTML = `<p class="error">Error: ${err.message}</p>`;
+          document.getElementById('results').innerHTML = `<p class="text-error text-sm">Error: ${err.message}</p>`;
         }
       }
 
