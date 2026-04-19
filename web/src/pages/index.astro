@@ -28,7 +28,10 @@ import '../styles/global.css';
       <dialog id="upload-dialog" class="modal">
         <div class="modal-box">
           <h3 class="font-bold text-lg">Upload .run files</h3>
-          <input type="file" id="run-file" accept=".run" multiple class="file-input file-input-bordered w-full my-3" />
+          <div id="drop-zone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors my-3">
+            <p id="drop-label" class="text-base-content/60 text-sm">Drag &amp; drop .run files here, or <span class="text-primary underline">click to browse</span></p>
+            <input type="file" id="run-file" accept=".run" multiple class="hidden" />
+          </div>
           <div class="modal-action">
             <button type="button" id="cancel-upload" class="btn btn-ghost">Cancel</button>
             <button type="button" id="confirm-upload" class="btn btn-primary">Upload</button>
@@ -66,16 +69,50 @@ import '../styles/global.css';
     <script>
       // ── Upload dialog ──────────────────────────────────────────
       const dialog = document.getElementById('upload-dialog');
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('run-file');
+      const dropLabel = document.getElementById('drop-label');
+      let selectedFiles = [];
+
+      function updateDropLabel() {
+        dropLabel.textContent = selectedFiles.length > 0
+          ? `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} selected`
+          : '';
+        if (selectedFiles.length === 0) {
+          dropLabel.innerHTML = 'Drag &amp; drop .run files here, or <span class="text-primary underline">click to browse</span>';
+        }
+      }
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        selectedFiles = Array.from(fileInput.files);
+        updateDropLabel();
+      });
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-primary', 'bg-base-200');
+      });
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-primary', 'bg-base-200');
+      });
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary', 'bg-base-200');
+        selectedFiles = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.run'));
+        updateDropLabel();
+      });
 
       document.getElementById('open-dialog').addEventListener('click', () => {
         document.getElementById('status').textContent = '';
+        selectedFiles = [];
+        updateDropLabel();
         dialog.showModal();
       });
 
       document.getElementById('cancel-upload').addEventListener('click', () => dialog.close());
 
       document.getElementById('confirm-upload').addEventListener('click', async () => {
-        const files = Array.from(document.getElementById('run-file').files);
+        const files = selectedFiles;
         const status = document.getElementById('status');
         if (files.length === 0) return;
 
