@@ -67,6 +67,10 @@ import '../styles/global.css';
     </div>
 
     <script>
+      function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
       // ── Upload dialog ──────────────────────────────────────────
       const dialog = document.getElementById('upload-dialog');
       const dropZone = document.getElementById('drop-zone');
@@ -146,7 +150,7 @@ import '../styles/global.css';
         const select = document.getElementById('cards-select');
         try {
           const cards = await (await fetch('/api/v1/cards')).json();
-          select.innerHTML = cards.map(c => `<option value="${c}">${c}</option>`).join('');
+          select.innerHTML = cards.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
         } catch {
           // leave empty — search still works with no selection
         }
@@ -196,7 +200,7 @@ import '../styles/global.css';
             <td>${r.id}</td>
             <td>${r.ascension}</td>
             <td class="${r.win ? 'text-success font-medium' : 'text-error font-medium'}">${r.win ? 'Win' : 'Loss'}</td>
-            <td>${r.build_id}</td>
+            <td>${esc(r.build_id)}</td>
           </tr>
         `).join('');
 
