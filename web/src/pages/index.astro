@@ -90,6 +90,10 @@ import '../styles/global.css';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
 
+      function stripPrefix(s) {
+        return String(s).replace(/^[^.]+\./, '');
+      }
+
       // ── Upload dialog ──────────────────────────────────────────
       const dialog = document.getElementById('upload-dialog');
       const dropZone = document.getElementById('drop-zone');
@@ -175,7 +179,7 @@ import '../styles/global.css';
         select.innerHTML = '<option disabled>Loading…</option>';
         try {
           const cards = await (await fetch('/api/v1/cards')).json();
-          select.innerHTML = cards.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+          select.innerHTML = cards.map(c => `<option value="${esc(c)}">${esc(stripPrefix(c))}</option>`).join('');
         } catch {
           select.innerHTML = '';
         }
@@ -301,8 +305,8 @@ import '../styles/global.css';
               const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
               const players = run.players.map(p => `
                 <div class="mb-2">
-                  <span class="font-medium">${esc(p.character)}</span>
-                  <div class="text-xs text-base-content/60 mt-1">${p.deck.map(c => esc(c.id)).join(', ')}</div>
+                  <span class="font-medium">${esc(stripPrefix(p.character))}</span>
+                  <div class="text-xs text-base-content/60 mt-1">${p.deck.map(c => esc(stripPrefix(c.id))).join(', ')}</div>
                 </div>`).join('');
               detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${players}</td>`;
             } catch {
