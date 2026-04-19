@@ -346,14 +346,14 @@ import '../styles/global.css';
             <td>${r.id}</td>
             <td>${r.ascension}</td>
             <td><span class="badge ${r.win ? 'badge-success' : 'badge-error'}">${r.win ? 'Win' : 'Loss'}</span></td>
-            <td>${esc(r.build_id)}</td>
+            <td>${r.player_count === 1 ? 'Single' : 'Multi'}</td>
           </tr>
         `).join('');
 
         container.innerHTML = statsHtml + `
           <div class="overflow-x-auto">
             <table class="table table-zebra">
-              <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Build</th></tr></thead>
+              <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Mode</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>
@@ -413,7 +413,8 @@ import '../styles/global.css';
               <div class="flex flex-wrap gap-1">${cardBtns}</div>
             </div>`;
           }).join('');
-          detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${players}</td>`;
+          const buildLine = `<div class="text-xs text-base-content/60 mb-2">Build: ${esc(run.build_id)}</div>`;
+          detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${buildLine}${players}</td>`;
           detailRow.querySelectorAll('button[data-card-id]').forEach(btn => {
             btn.addEventListener('click', (e) => {
               e.stopPropagation();

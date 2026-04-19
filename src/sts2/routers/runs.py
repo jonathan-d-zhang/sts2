@@ -16,6 +16,7 @@ class RunSummary(BaseModel):
     ascension: int
     win: bool
     build_id: str
+    player_count: int
 
 
 class RunsPage(BaseModel):
@@ -60,6 +61,7 @@ async def list_runs(  # noqa: PLR0913
 
     query = f"""
         SELECT r.id, r.ascension, r.win, r.build_id,
+               jsonb_array_length(r.data->'players') AS player_count,
                COUNT(*) OVER () AS total,
                SUM(CASE WHEN r.win THEN 1 ELSE 0 END) OVER () AS wins
         FROM runs r
@@ -71,9 +73,9 @@ async def list_runs(  # noqa: PLR0913
         rows = await (await conn.execute(query, params)).fetchall()
 
     return RunsPage(
-        items=[RunSummary(id=r[0], ascension=r[1], win=r[2], build_id=r[3]) for r in rows],
-        total=rows[0][4] if rows else 0,
-        wins=rows[0][5] if rows else 0,
+        items=[RunSummary(id=r[0], ascension=r[1], win=r[2], build_id=r[3], player_count=r[4]) for r in rows],
+        total=rows[0][5] if rows else 0,
+        wins=rows[0][6] if rows else 0,
         limit=limit,
         offset=offset,
     )
