@@ -54,7 +54,7 @@ import '../styles/global.css';
                 <option value="both">Both</option>
               </select>
             </div>
-            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="submit" id="search-btn" class="btn btn-primary">Search</button>
           </form>
 
           <div id="results" class="mt-4"></div>
@@ -175,11 +175,16 @@ import '../styles/global.css';
 
       async function loadPage(offset) {
         currentOffset = offset;
+        const btn = document.getElementById('search-btn');
+        btn.disabled = true;
+        document.getElementById('results').innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
         try {
           const data = await fetchRuns(offset);
           renderResults(data, offset);
         } catch (err) {
           document.getElementById('results').innerHTML = `<p class="text-error text-sm">Error: ${err.message}</p>`;
+        } finally {
+          btn.disabled = false;
         }
       }
 
