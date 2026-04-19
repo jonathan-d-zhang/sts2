@@ -95,7 +95,8 @@ import '../styles/global.css';
       }
 
       function displayCard(id) {
-        return stripPrefix(id).replace(/^(Strike|Defend)_\w+$/, '$1');
+        const name = stripPrefix(id).replace(/^(STRIKE|DEFEND)_\w+$/i, '$1');
+        return name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
       }
 
       // ── Upload dialog ──────────────────────────────────────────
@@ -295,29 +296,65 @@ import '../styles/global.css';
         document.getElementById('next-btn').addEventListener('click', () => loadPage(offset + PAGE_SIZE));
 
         document.querySelectorAll('tbody tr[data-run-id]').forEach(row => {
-          row.addEventListener('click', async () => {
+          row.addEventListener('click', () => {
             const runId = row.dataset.runId;
-            const existing = document.getElementById(`detail-${runId}`);
-            if (existing) { existing.remove(); return; }
-            document.querySelectorAll('tr.detail-row').forEach(r => r.remove());
-            const detailRow = document.createElement('tr');
-            detailRow.id = `detail-${runId}`;
-            detailRow.className = 'detail-row';
-            detailRow.innerHTML = '<td colspan="4" class="py-2"><span class="loading loading-spinner loading-xs"></span></td>';
-            row.after(detailRow);
-            try {
-              const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
-              const players = run.players.map(p => `
-                <div class="mb-2">
-                  <span class="font-medium">${esc(stripPrefix(p.character))}</span>
-                  <div class="text-xs text-base-content/60 mt-1">${p.deck.map(c => esc(displayCard(c.id))).join(', ')}</div>
-                </div>`).join('');
-              detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${players}</td>`;
-            } catch {
-              detailRow.innerHTML = '<td colspan="4" class="text-error text-sm">Failed to load details</td>';
+            if (openDetailRunId === runId) {
+              openDetailRunId = null;
+              document.getElementById(`detail-${runId}`)?.remove();
+            } else {
+              openDetailRunId = runId;
+              expandDetail(row, runId);
             }
           });
         });
+
+        if (openDetailRunId !== null) {
+          const row = document.querySelector(`tbody tr[data-run-id="${openDetailRunId}"]`);
+          if (row) expandDetail(row, openDetailRunId);
+        }
+      }
+
+      let openDetailRunId = null;
+
+      async function expandDetail(row, runId) {
+        document.querySelectorAll('tr.detail-row').forEach(r => r.remove());
+        const detailRow = document.createElement('tr');
+        detailRow.id = `detail-${runId}`;
+        detailRow.className = 'detail-row';
+        detailRow.innerHTML = '<td colspan="4" class="py-2"><span class="loading loading-spinner loading-xs"></span></td>';
+        row.after(detailRow);
+        try {
+          const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
+          const selectedCards = new Set(
+            Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value)
+          );
+          const players = run.players.map(p => {
+            const cardBtns = p.deck.map(c => {
+              const active = selectedCards.has(c.id) ? 'btn-primary' : 'btn-outline';
+              return `<button class="btn btn-xs ${active}" data-card-id="${esc(c.id)}">${esc(displayCard(c.id))}</button>`;
+            }).join('');
+            return `<div class="mb-3">
+              <div class="font-medium mb-1">${esc(stripPrefix(p.character))}</div>
+              <div class="flex flex-wrap gap-1">${cardBtns}</div>
+            </div>`;
+          }).join('');
+          detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${players}</td>`;
+          detailRow.querySelectorAll('button[data-card-id]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const opt = Array.from(document.getElementById('cards-select').options)
+                .find(o => o.value === btn.dataset.cardId);
+              if (opt) {
+                opt.selected = !opt.selected;
+                btn.classList.toggle('btn-primary', opt.selected);
+                btn.classList.toggle('btn-outline', !opt.selected);
+                loadPage(0);
+              }
+            });
+          });
+        } catch {
+          detailRow.innerHTML = '<td colspan="4" class="text-error text-sm">Failed to load details</td>';
+        }
       }
 
       async function loadPage(offset) {
