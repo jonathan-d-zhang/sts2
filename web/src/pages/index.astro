@@ -173,7 +173,15 @@ import '../styles/global.css';
           // leave empty — search still works with no selection
         }
       }
-      populateCards();
+      const { cards: initialCards, offset: initialOffset } = restoreFilters();
+      populateCards().then(() => {
+        if (initialCards.length > 0) {
+          Array.from(document.getElementById('cards-select').options).forEach(o => {
+            o.selected = initialCards.includes(o.value);
+          });
+        }
+        loadPage(initialOffset);
+      });
 
       async function populateAscensionCounts() {
         try {
@@ -211,13 +219,28 @@ import '../styles/global.css';
         const mode = document.getElementById('mode-select').value;
         const ascension = document.getElementById('ascension-select').value;
 
-        const params = new URLSearchParams({ limit: PAGE_SIZE, offset, mode });
-        cards.forEach(c => params.append('cards', c));
-        if (ascension !== '') params.append('ascension', ascension);
+        const filterParams = new URLSearchParams({ mode });
+        cards.forEach(c => filterParams.append('cards', c));
+        if (ascension !== '') filterParams.append('ascension', ascension);
+        if (offset > 0) filterParams.set('offset', offset);
+        history.replaceState({}, '', `?${filterParams}`);
+
+        const params = new URLSearchParams(filterParams);
+        params.set('limit', PAGE_SIZE);
+        params.set('offset', offset);
 
         const resp = await fetch(`/api/v1/runs?${params}`);
         if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
         return resp.json();
+      }
+
+      function restoreFilters() {
+        const p = new URLSearchParams(window.location.search);
+        const mode = p.get('mode');
+        if (mode) document.getElementById('mode-select').value = mode;
+        const ascension = p.get('ascension');
+        if (ascension !== null) document.getElementById('ascension-select').value = ascension;
+        return { cards: p.getAll('cards'), offset: parseInt(p.get('offset') ?? '0', 10) };
       }
 
       function renderResults(data, offset) {
@@ -310,7 +333,6 @@ import '../styles/global.css';
         loadPage(0);
       });
 
-      loadPage(0);
     </script>
   </body>
 </html>
