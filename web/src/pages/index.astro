@@ -218,7 +218,7 @@ import '../styles/global.css';
           <tr>
             <td>${r.id}</td>
             <td>${r.ascension}</td>
-            <td class="${r.win ? 'text-success font-medium' : 'text-error font-medium'}">${r.win ? 'Win' : 'Loss'}</td>
+            <td><span class="badge ${r.win ? 'badge-success' : 'badge-error'}">${r.win ? 'Win' : 'Loss'}</span></td>
             <td>${esc(r.build_id)}</td>
           </tr>
         `).join('');
