@@ -204,7 +204,6 @@ import '../styles/global.css';
       }, { capture: true });
 
       // ── Query form ─────────────────────────────────────────────
-      let currentOffset = 0;
       const PAGE_SIZE = 20;
 
       async function fetchRuns(offset = 0) {
@@ -284,7 +283,6 @@ import '../styles/global.css';
       }
 
       async function loadPage(offset) {
-        currentOffset = offset;
         const btn = document.getElementById('search-btn');
         btn.disabled = true;
         document.getElementById('results').innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
