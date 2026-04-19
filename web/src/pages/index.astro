@@ -329,9 +329,15 @@ import '../styles/global.css';
             Array.from(document.getElementById('cards-select').selectedOptions).map(o => o.value)
           );
           const players = run.players.map(p => {
-            const cardBtns = p.deck.map(c => {
-              const active = selectedCards.has(c.id) ? 'btn-primary' : 'btn-outline';
-              return `<button class="btn btn-xs ${active}" data-card-id="${esc(c.id)}">${esc(displayCard(c.id))}</button>`;
+            const groups = p.deck.reduce((acc, c) => {
+              if (acc.length && acc[acc.length - 1].id === c.id) acc[acc.length - 1].n++;
+              else acc.push({ id: c.id, n: 1 });
+              return acc;
+            }, []);
+            const cardBtns = groups.map(({ id, n }) => {
+              const active = selectedCards.has(id) ? 'btn-primary' : 'btn-outline';
+              const label = n > 1 ? `${esc(displayCard(id))} ×${n}` : esc(displayCard(id));
+              return `<button class="btn btn-xs ${active}" data-card-id="${esc(id)}">${label}</button>`;
             }).join('');
             return `<div class="mb-3">
               <div class="font-medium mb-1">${esc(stripPrefix(p.character))}</div>
