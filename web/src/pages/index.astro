@@ -75,6 +75,14 @@ import '../styles/global.css';
               </select>
             </div>
             <div class="form-control">
+              <label class="label"><span class="label-text">Result</span></label>
+              <select id="result-select" class="select select-bordered">
+                <option value="both">All</option>
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+              </select>
+            </div>
+            <div class="form-control">
               <label class="label"><span class="label-text">Ascension</span></label>
               <select id="ascension-select" class="select select-bordered">
                 <option value="">All</option>
@@ -294,9 +302,10 @@ import '../styles/global.css';
       async function fetchRuns(offset = 0) {
         const cards = Array.from(selectedCardIds);
         const mode = document.getElementById('mode-select').value;
+        const result = document.getElementById('result-select').value;
         const ascension = document.getElementById('ascension-select').value;
 
-        const filterParams = new URLSearchParams({ mode });
+        const filterParams = new URLSearchParams({ mode, result });
         cards.forEach(c => filterParams.append('cards', c));
         if (ascension !== '') filterParams.append('ascension', ascension);
         if (offset > 0) filterParams.set('offset', offset);
@@ -315,6 +324,8 @@ import '../styles/global.css';
         const p = new URLSearchParams(window.location.search);
         const mode = p.get('mode');
         if (mode) document.getElementById('mode-select').value = mode;
+        const result = p.get('result');
+        if (result) document.getElementById('result-select').value = result;
         const ascension = p.get('ascension');
         if (ascension !== null) document.getElementById('ascension-select').value = ascension;
         return { cards: p.getAll('cards'), offset: parseInt(p.get('offset') ?? '0', 10) };
@@ -447,6 +458,7 @@ import '../styles/global.css';
         renderCardBadges();
         document.getElementById('cards-search').value = '';
         document.getElementById('mode-select').value = 'single';
+        document.getElementById('result-select').value = 'both';
         document.getElementById('ascension-select').value = '';
         loadPage(0);
       });

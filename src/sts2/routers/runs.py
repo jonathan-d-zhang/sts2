@@ -27,9 +27,10 @@ class RunsPage(BaseModel):
 
 
 @router.get("/runs")
-async def list_runs(
+async def list_runs(  # noqa: PLR0913
     cards: Annotated[list[str] | None, Query()] = None,
     mode: Annotated[Literal["single", "multi", "both"], Query()] = "single",
+    result: Annotated[Literal["win", "loss", "both"], Query()] = "both",
     ascension: Annotated[int | None, Query(ge=0, le=10)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -46,6 +47,10 @@ async def list_runs(
         conditions.append("jsonb_array_length(r.data->'players') = 1")
     elif mode == "multi":
         conditions.append("jsonb_array_length(r.data->'players') > 1")
+    if result == "win":
+        conditions.append("r.win = true")
+    elif result == "loss":
+        conditions.append("r.win = false")
     if ascension is not None:
         conditions.append("r.ascension = %s")
         params.append(ascension)
