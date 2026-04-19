@@ -8,10 +8,21 @@ import '../styles/global.css';
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width" />
     <title>STS2 Run History</title>
+    <script is:inline>
+      const _t = document.cookie.split('; ').find(r => r.startsWith('theme='))?.split('=')[1];
+      if (_t) document.documentElement.setAttribute('data-theme', _t);
+    </script>
   </head>
   <body class="bg-base-200 min-h-screen">
     <div class="container mx-auto max-w-4xl px-4 py-8">
-      <h1 class="text-3xl font-bold mb-6">STS2 Run History</h1>
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">STS2 Run History</h1>
+        <label class="swap swap-rotate btn btn-ghost btn-circle">
+          <input type="checkbox" id="theme-toggle" />
+          <span class="swap-on text-xl">🌙</span>
+          <span class="swap-off text-xl">☀️</span>
+        </label>
+      </div>
 
       <!-- ── Upload ── -->
       <div class="card bg-base-100 shadow mb-6">
@@ -90,6 +101,15 @@ import '../styles/global.css';
     </div>
 
     <script>
+      // ── Dark mode ─────────────────────────────────────────────
+      const themeToggle = document.getElementById('theme-toggle');
+      themeToggle.checked = document.documentElement.getAttribute('data-theme') === 'dark';
+      themeToggle.addEventListener('change', () => {
+        const theme = themeToggle.checked ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
+      });
+
       function esc(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
