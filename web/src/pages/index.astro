@@ -296,7 +296,7 @@ import '../styles/global.css';
                   <div class="ov-stat-value">${st.pickRate}%</div>
                   <div class="ov-stat-sub">${st.count} runs</div>
                 </div>
-              </div>` : `<div style="font-size:11px;color:var(--dim)">Stats available after backend update</div>`}
+              </div>` : `<div style="font-size:11px;color:var(--dim)">No runs recorded</div>`}
             <div class="ov-focus-hint">${focused ? '● Focused' : 'Focus & view runs →'}</div>
           </div>`;
       }).join('');
@@ -616,11 +616,6 @@ import '../styles/global.css';
           <div class="bar-val">${d.rate}%</div>
         </div>`).join('');
 
-      // Note: detailed card stats require full run data (deck is not in RunSummary).
-      // The charts below will be empty until you either:
-      //   a) Add deck summary to RunSummary, or
-      //   b) Fetch individual run details (expensive for large datasets).
-
       setMain(`
         ${pageHeader(`${S.char ? charLabel(S.char) : 'All'} — Statistics`, `${total} runs`)}
         <div class="page-body">
@@ -628,7 +623,7 @@ import '../styles/global.css';
             <div class="sc" style="border-top:2px solid ${col}">
               <div class="slabel">Total Runs</div>
               <div class="sval">${total}</div>
-              <div class="ssub">${S.char ?? 'All characters'}</div>
+              <div class="ssub">${S.char ? charLabel(S.char) : 'All characters'}</div>
             </div>
             <div class="sc" style="border-top:2px solid ${col}">
               <div class="slabel">Win Rate</div>
@@ -646,10 +641,9 @@ import '../styles/global.css';
               <div class="cc-title">Win Rate by Ascension</div>
               ${ascChart || '<div style="color:var(--dim);font-size:12px">No data</div>'}
             </div>
-            <div class="cc" style="color:var(--dim);font-size:12px">
+            <div class="cc">
               <div class="cc-title">Top Cards</div>
-              Card frequency stats require deck data in RunSummary (backend update needed), or
-              fetching individual run details. See the comment at the top of index.astro.
+              <div style="color:var(--dim);font-size:12px">No data</div>
             </div>
           </div>
         </div>`);
