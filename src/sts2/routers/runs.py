@@ -17,6 +17,7 @@ class RunSummary(BaseModel):
     win: bool
     build_id: str
     player_count: int
+    character: str
 
 
 class RunsPage(BaseModel):
@@ -30,6 +31,7 @@ class RunsPage(BaseModel):
 @router.get("/runs")
 async def list_runs(  # noqa: PLR0913
     cards: Annotated[list[str] | None, Query()] = None,
+    character: Annotated[str | None, Query()] = None,
     mode: Annotated[Literal["single", "multi", "both"], Query()] = "single",
     result: Annotated[Literal["win", "loss", "both"], Query()] = "both",
     ascension: Annotated[int | None, Query(ge=0, le=10)] = None,
@@ -52,6 +54,9 @@ async def list_runs(  # noqa: PLR0913
         conditions.append("r.win = true")
     elif result == "loss":
         conditions.append("r.win = false")
+    if character is not None:
+        conditions.append("r.data->'players'->0->>'character' = %s")
+        params.append(character)
     if ascension is not None:
         conditions.append("r.ascension = %s")
         params.append(ascension)
@@ -63,7 +68,8 @@ async def list_runs(  # noqa: PLR0913
         SELECT r.id, r.ascension, r.win, r.build_id,
                jsonb_array_length(r.data->'players') AS player_count,
                COUNT(*) OVER () AS total,
-               SUM(CASE WHEN r.win THEN 1 ELSE 0 END) OVER () AS wins
+               SUM(CASE WHEN r.win THEN 1 ELSE 0 END) OVER () AS wins,
+               r.data->'players'->0->>'character' AS character
         FROM runs r
         {where}
         ORDER BY r.id DESC
@@ -73,7 +79,10 @@ async def list_runs(  # noqa: PLR0913
         rows = await (await conn.execute(query, params)).fetchall()
 
     return RunsPage(
-        items=[RunSummary(id=r[0], ascension=r[1], win=r[2], build_id=r[3], player_count=r[4]) for r in rows],
+        items=[
+            RunSummary(id=r[0], ascension=r[1], win=r[2], build_id=r[3], player_count=r[4], character=r[7])
+            for r in rows
+        ],
         total=rows[0][5] if rows else 0,
         wins=rows[0][6] if rows else 0,
         limit=limit,

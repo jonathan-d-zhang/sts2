@@ -2,468 +2,754 @@
 import '../styles/global.css';
 ---
 
-<html lang="en" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <title>STS2 Run History</title>
-    <script is:inline>
-      const _t = document.cookie.split('; ').find(r => r.startsWith('theme='))?.split('=')[1];
-      if (_t) document.documentElement.setAttribute('data-theme', _t);
-    </script>
-  </head>
-  <body class="bg-base-200 min-h-screen">
-    <div class="container mx-auto max-w-4xl px-4 py-8">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold">STS2 Run History</h1>
-        <label class="swap swap-rotate btn btn-ghost btn-circle">
-          <input type="checkbox" id="theme-toggle" />
-          <span class="swap-on text-xl">🌙</span>
-          <span class="swap-off text-xl">☀️</span>
-        </label>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>STS2 — Run History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script is:inline>
+    /* Set theme before first paint to avoid flash */
+    const _t = document.cookie.split('; ').find(r => r.startsWith('theme='))?.split('=')[1];
+    if (_t) document.documentElement.setAttribute('data-theme', _t);
+  </script>
+</head>
+<body>
+  <div class="layout">
+
+    <!-- ── Sidebar ──────────────────────────────────────── -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-sts">STS2</div>
+        <div class="logo-sub">Run History</div>
       </div>
 
-      <!-- ── Upload ── -->
-      <div class="card bg-base-100 shadow mb-6">
-        <div class="card-body">
-          <h2 class="card-title">Upload run</h2>
-          <div>
-            <button class="btn btn-primary" id="open-dialog">Choose file…</button>
-            <p id="status" class="mt-3 text-sm"></p>
+      <div class="sidebar-char-section">
+        <div class="char-chip" id="char-chip">
+          <div class="char-chip-inner">
+            <span class="chip-empty">No character selected</span>
           </div>
+          <div class="chip-hint">Go to Overview →</div>
         </div>
       </div>
 
-      <!-- ── Upload modal ── -->
-      <dialog id="upload-dialog" class="modal">
-        <div class="modal-box">
-          <h3 class="font-bold text-lg">Upload .run files</h3>
-          <p id="upload-error" class="text-error text-sm mt-1 hidden"></p>
-          <div id="drop-zone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors my-3">
-            <p id="drop-label" class="text-base-content/60 text-sm">Drag &amp; drop .run files here, or <span class="text-primary underline">click to browse</span></p>
-            <input type="file" id="run-file" accept=".run" multiple class="hidden" />
-          </div>
-          <div class="modal-action">
-            <button type="button" id="cancel-upload" class="btn btn-ghost">Cancel</button>
-            <button type="button" id="confirm-upload" class="btn btn-primary">Upload</button>
-          </div>
-        </div>
-        <form method="dialog" class="modal-backdrop"><button>close</button></form>
-      </dialog>
+      <nav class="nav-section">
+        <a class="nav-item active" data-page="overview" href="#">
+          <span class="nav-icon">◈</span>Overview
+        </a>
+        <a class="nav-item disabled" data-page="runs" href="#">
+          <span class="nav-icon">▤</span>Runs
+        </a>
+        <a class="nav-item disabled" data-page="stats" href="#">
+          <span class="nav-icon">◎</span>Statistics
+        </a>
+        <a class="nav-item" data-page="upload" href="#">
+          <span class="nav-icon">↑</span>Upload
+        </a>
+      </nav>
 
-      <!-- ── Browse ── -->
-      <div class="card bg-base-100 shadow">
-        <div class="card-body">
-          <h2 class="card-title">Browse runs</h2>
-          <form id="query-form" class="flex flex-wrap gap-4 items-end">
-            <div class="form-control flex-1 min-w-48 relative">
-              <label class="label"><span class="label-text">Cards</span></label>
-              <div id="card-filter-box" class="input input-bordered flex flex-wrap gap-1 items-center h-auto min-h-10 py-1 px-2 cursor-text">
-                <div id="card-badges" class="flex flex-wrap gap-1"></div>
-                <input type="text" id="cards-search" placeholder="Add card…" autocomplete="off"
-                       class="flex-1 min-w-20 bg-transparent border-none outline-none text-sm h-6" />
+      <div class="sidebar-footer">
+        <div class="theme-row">
+          <span class="theme-label" id="theme-label">Dark mode</span>
+          <button class="toggle on" id="theme-toggle" aria-label="Toggle theme"></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main content ─────────────────────────────────── -->
+    <main class="main" id="main">
+      <div class="loading-wrap">Loading…</div>
+    </main>
+
+  </div>
+
+  <script>
+    // ── Constants ──────────────────────────────────────────
+    const PAGE_SIZE = 20;
+    const API = '/api/v1';
+
+    const CHARS = ['CHARACTER.IRONCLAD', 'CHARACTER.SILENT', 'CHARACTER.REGENT', 'CHARACTER.NECROBINDER', 'CHARACTER.DEFECT'];
+    const CHAR_COLORS = {
+      'CHARACTER.IRONCLAD':    '#c0453a',
+      'CHARACTER.SILENT':      '#3aab6a',
+      'CHARACTER.REGENT':      '#c88a2a',
+      'CHARACTER.NECROBINDER': '#9a68c0',
+      'CHARACTER.DEFECT':      '#4890d4',
+    };
+    const CHAR_INITIALS = {
+      'CHARACTER.IRONCLAD':    'IC',
+      'CHARACTER.SILENT':      'SI',
+      'CHARACTER.REGENT':      'RE',
+      'CHARACTER.NECROBINDER': 'NB',
+      'CHARACTER.DEFECT':      'DF',
+    };
+    const CHAR_DESC = {
+      'CHARACTER.IRONCLAD':    'Crushes foes with sword and flame against his will.',
+      'CHARACTER.SILENT':      'Ready to stab and poison anything in her way.',
+      'CHARACTER.REGENT':      'Wields cosmic powers but his minions do the work.',
+      'CHARACTER.NECROBINDER': 'Calls upon her trusty left hand, Osty, in combat.',
+      'CHARACTER.DEFECT':      'Deploys Orb technology when it must fight.',
+    };
+
+    // ── State ──────────────────────────────────────────────
+    const S = {
+      char:       null,       // focused character (null = all)
+      page:       'overview',
+      dark:       document.documentElement.dataset.theme === 'dark',
+      // runs page
+      cards:      new Set(),  // card filter
+      result:     'both',
+      ascension:  '',
+      offset:     0,
+      openRunIds: new Set(),  // expanded row IDs
+      allCards:   [],         // populated from /api/v1/cards
+      // cache
+      _runCache:  null,       // all runs fetched for stats/overview
+    };
+
+    // ── API helpers ────────────────────────────────────────
+    async function apiFetch(path) {
+      const r = await fetch(API + path);
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      return r.json();
+    }
+    async function apiPost(path, body) {
+      const r = await fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      return r.json();
+    }
+
+    // ── Utilities ──────────────────────────────────────────
+    const esc = s => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    function stripPrefix(s) { return String(s).replace(/^[^.]+\./, ''); }
+    function displayChar(raw) {
+      return stripPrefix(raw).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+    function displayCard(id) {
+      return stripPrefix(id)
+        .replace(/^(STRIKE|DEFEND)_[A-Z]+$/i, '$1')
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function fmtTime(m) { return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; }
+    function fmtDate(ts) {
+      const d = Math.round((Date.now() - ts * 1000) / 86400000);
+      if (d === 0) return 'today';
+      if (d === 1) return 'yesterday';
+      if (d < 7) return `${d}d ago`;
+      return new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function dedupDeck(deck) {
+      const m = new Map();
+      deck.forEach(c => m.set(c, (m.get(c) || 0) + 1));
+      return Array.from(m.entries()).map(([name, count]) => ({ name, count }));
+    }
+
+    function charLabel(raw) { return 'The ' + displayChar(raw); }
+    function charColor(char) { return CHAR_COLORS[char] || '#888'; }
+    function charIni(char)   { return CHAR_INITIALS[char] || char.slice(0, 2).toUpperCase(); }
+
+    function charBadgeHtml(char, size = 30) {
+      const col = charColor(char);
+      const ini = charIni(char);
+      return `<div class="char-badge" style="width:${size}px;height:${size}px;background:${col}1e;color:${col};border:1px solid ${col}40">${esc(ini)}</div>`;
+    }
+
+    // ── Run cache (for stats & overview per-char data) ─────
+    async function loadAllRuns() {
+      if (S._runCache) return S._runCache;
+      const all = [];
+      let offset = 0;
+      while (true) {
+        const data = await apiFetch(`/runs?mode=both&result=both&limit=100&offset=${offset}`);
+        all.push(...data.items);
+        if (all.length >= data.total || data.items.length === 0) break;
+        offset += 100;
+      }
+      S._runCache = all;
+      return all;
+    }
+
+    // ── Theme ──────────────────────────────────────────────
+    function setTheme(dark) {
+      S.dark = dark;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.cookie = `theme=${dark ? 'dark' : 'light'};path=/;max-age=31536000;SameSite=Lax`;
+      document.getElementById('theme-label').textContent = dark ? 'Dark mode' : 'Light mode';
+      document.getElementById('theme-toggle').classList.toggle('on', dark);
+    }
+
+    // ── Sidebar ────────────────────────────────────────────
+    const CHAR_PAGES = ['runs', 'stats'];
+
+    function updateSidebar() {
+      const chip = document.getElementById('char-chip');
+      if (S.char) {
+        const col = charColor(S.char);
+        const ini = charIni(S.char);
+        chip.innerHTML = `
+          <div class="char-chip-inner">
+            <div class="chip-badge" style="background:${col}1e;color:${col};border:1px solid ${col}40">${esc(ini)}</div>
+            <div>
+              <div class="chip-name">${esc(charLabel(S.char))}</div>
+              <div class="chip-sub">Active character</div>
+            </div>
+          </div>
+          <div class="chip-hint">Switch character →</div>`;
+        chip.onclick = () => { S.char = null; navigate('overview'); };
+      } else {
+        chip.innerHTML = `
+          <div class="char-chip-inner"><span class="chip-empty">No character selected</span></div>
+          <div class="chip-hint">Go to Overview →</div>`;
+        chip.onclick = () => navigate('overview');
+      }
+
+      document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+        const p = el.dataset.page;
+        el.classList.toggle('active', p === S.page);
+        el.classList.toggle('disabled', CHAR_PAGES.includes(p) && !S.char);
+      });
+    }
+
+    // ── Navigation ─────────────────────────────────────────
+    function navigate(page) {
+      if (CHAR_PAGES.includes(page) && !S.char) return;
+      S.page = page;
+      S.offset = 0;
+      S.openRunIds.clear();
+      updateSidebar();
+      renderPage().catch(err => {
+        document.getElementById('main').innerHTML =
+          `<div class="error-state">Error loading page: ${esc(err.message)}</div>`;
+      });
+    }
+
+    function setMain(html) { document.getElementById('main').innerHTML = html; }
+
+    function pageHeader(title, desc) {
+      return `<div class="page-header"><h1>${esc(title)}</h1><span class="desc">${esc(desc)}</span></div>`;
+    }
+
+    async function renderPage() {
+      setMain('<div class="loading-wrap">Loading…</div>');
+      switch (S.page) {
+        case 'overview': await renderOverview(); break;
+        case 'runs':     await renderRuns();     break;
+        case 'stats':    await renderStats();    break;
+        case 'upload':   renderUpload();         break;
+      }
+    }
+
+    // ── Overview page ──────────────────────────────────────
+    async function renderOverview() {
+      // Fetch total run counts and optionally character-level stats
+      const [ascData, allRuns] = await Promise.all([
+        apiFetch('/ascensions'),
+        loadAllRuns(),
+      ]);
+
+      const totalRuns = allRuns.length;
+
+      // Per-character stats (works when `character` is present in RunSummary)
+      // If not present yet, winRate will be 0 and counts will show 0 — update backend to enable.
+      function charStats(char) {
+        const runs = allRuns.filter(r => r.character === char);
+        const wins = runs.filter(r => r.win).length;
+        const pickRate = totalRuns ? Math.round(runs.length / totalRuns * 100) : 0;
+        return { count: runs.length, wins, winRate: runs.length ? Math.round(wins / runs.length * 100) : 0, pickRate };
+      }
+
+      const charCards = CHARS.map(char => {
+        const col = charColor(char);
+        const ini = charIni(char);
+        const st  = charStats(char);
+        const focused = S.char === char;
+        // Show stats only if we have character data; otherwise show a note
+        const hasData = st.count > 0;
+        return `
+          <div class="ov-card ${focused ? 'focused' : ''}" data-char="${esc(char)}" style="--cc:${col}">
+            <div class="ov-card-top" style="background:${col}"></div>
+            <div class="ov-badge" style="background:${col}1e;color:${col};border:1px solid ${col}40">${esc(ini)}</div>
+            <div class="ov-name">${esc(charLabel(char))}</div>
+            <div class="ov-desc">${esc(CHAR_DESC[char])}</div>
+            ${hasData ? `
+              <div class="ov-stats">
+                <div>
+                  <div class="ov-stat-label">Win Rate</div>
+                  <div class="ov-stat-value" style="color:${st.winRate >= 50 ? 'var(--win)' : 'var(--loss)'}">${st.winRate}%</div>
+                  <div class="ov-stat-sub">${st.wins}/${st.count} runs</div>
+                </div>
+                <div>
+                  <div class="ov-stat-label">Pick Rate</div>
+                  <div class="ov-stat-value">${st.pickRate}%</div>
+                  <div class="ov-stat-sub">${st.count} runs</div>
+                </div>
+              </div>` : `<div style="font-size:11px;color:var(--dim)">Stats available after backend update</div>`}
+            <div class="ov-focus-hint">${focused ? '● Focused' : 'Focus & view runs →'}</div>
+          </div>`;
+      }).join('');
+
+      // Win rate comparison (needs character data)
+      const charComparison = CHARS.map(char => {
+        const st = charStats(char);
+        if (!st.count) return '';
+        const col = charColor(char);
+        return `<div class="bar-row">
+          <div class="bar-lbl">${esc(charLabel(char))}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${st.winRate}%;background:${col}"></div></div>
+          <div class="bar-val">${st.winRate}%</div>
+        </div>`;
+      }).join('');
+
+      // Ascension distribution
+      const maxAscCount = Math.max(...ascData.map(d => d.count), 1);
+      const ascChart = ascData.map(d => `
+        <div class="bar-row">
+          <div class="bar-lbl">A${d.ascension}</div>
+          <div class="bar-track"><div class="bar-fill accent" style="width:${d.count / maxAscCount * 100}%"></div></div>
+          <div class="bar-val">${d.count}</div>
+        </div>`).join('');
+
+      const totalWins = allRuns.filter(r => r.win).length;
+      const overallWR = totalRuns ? Math.round(totalWins / totalRuns * 100) : 0;
+
+      setMain(`
+        ${pageHeader('Overview', `${totalRuns} runs · ${overallWR}% overall win rate`)}
+        <div class="page-body">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:12px">
+            Select a character to scope the Runs and Statistics pages.
+          </div>
+          <div class="overview-grid" id="ov-grid">${charCards}</div>
+          <div class="compare-section">
+            <div class="compare-title">Comparison</div>
+            <div class="compare-grid">
+              ${charComparison ? `
+                <div class="cc">
+                  <div class="cc-title">Win Rate by Character</div>
+                  ${charComparison}
+                </div>` : ''}
+              <div class="cc">
+                <div class="cc-title">Runs by Ascension</div>
+                ${ascChart || '<div style="color:var(--dim);font-size:12px">No data</div>'}
               </div>
-              <ul id="cards-dropdown" class="hidden absolute top-full left-0 right-0 z-20 bg-base-100 border border-base-300 rounded-box shadow-lg max-h-48 overflow-y-auto mt-1 p-1 menu menu-sm"></ul>
             </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Mode</span></label>
-              <select id="mode-select" class="select select-bordered">
-                <option value="single">Single player</option>
-                <option value="multi">Multiplayer</option>
-                <option value="both">Both</option>
+          </div>
+        </div>`);
+
+      document.querySelectorAll('#ov-grid .ov-card').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          el.style.boxShadow = `0 8px 28px ${charColor(el.dataset.char)}28`;
+        });
+        el.addEventListener('mouseleave', () => { el.style.boxShadow = ''; });
+        el.addEventListener('click', () => {
+          S.char = el.dataset.char;
+          navigate('runs');
+        });
+      });
+    }
+
+    // ── Runs page ──────────────────────────────────────────
+    async function renderRuns() {
+      const params = new URLSearchParams({
+        mode: 'both', result: S.result, limit: PAGE_SIZE, offset: S.offset,
+      });
+      if (S.char) params.set('character', S.char);
+      if (S.ascension !== '') params.set('ascension', S.ascension);
+      S.cards.forEach(c => params.append('cards', c));
+
+      const data = await apiFetch(`/runs?${params}`);
+      const totalPages = Math.ceil(data.total / PAGE_SIZE);
+
+      // Card filter tags
+      const filterTags = Array.from(S.cards).map(c =>
+        `<span class="ctag">${esc(displayCard(c))}<button class="ctag-rm" data-card="${esc(c)}">×</button></span>`
+      ).join('');
+
+      // Run rows
+      const rows = data.items.length ? data.items.map(r => runRowHtml(r)).join('') :
+        '<div class="empty-state">No runs match the current filters.</div>';
+
+      // Pagination
+      const pager = totalPages > 1 ? `
+        <div class="pager">
+          <button class="pbtn" id="prev-btn" ${S.offset === 0 ? 'disabled' : ''}>← Prev</button>
+          <span>Page ${Math.floor(S.offset / PAGE_SIZE) + 1} of ${totalPages}</span>
+          <button class="pbtn" id="next-btn" ${data.items.length < PAGE_SIZE ? 'disabled' : ''}>Next →</button>
+        </div>` : '';
+
+      const wr = data.total ? Math.round(data.wins / data.total * 100) : 0;
+
+      setMain(`
+        ${pageHeader(`${charLabel(S.char)} — Runs`, `${data.total} runs`)}
+        <div class="page-body">
+          <div class="filters">
+            <div class="fg card-filter-wrap">
+              <div class="flabel">Cards</div>
+              <div class="card-filter" id="card-filter-box">
+                <div id="card-tags">${filterTags}</div>
+                <input type="text" id="card-search" placeholder="${S.cards.size ? '' : 'Filter by card…'}" autocomplete="off" />
+              </div>
+              <div class="cdrop" id="card-drop"></div>
+            </div>
+            <div class="fg">
+              <div class="flabel">Result</div>
+              <select class="sel" id="result-sel">
+                <option value="both" ${S.result === 'both' ? 'selected' : ''}>All</option>
+                <option value="win"  ${S.result === 'win'  ? 'selected' : ''}>Win</option>
+                <option value="loss" ${S.result === 'loss' ? 'selected' : ''}>Loss</option>
               </select>
             </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Result</span></label>
-              <select id="result-select" class="select select-bordered">
-                <option value="both">All</option>
-                <option value="win">Win</option>
-                <option value="loss">Loss</option>
-              </select>
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Ascension</span></label>
-              <select id="ascension-select" class="select select-bordered">
+            <div class="fg">
+              <div class="flabel">Ascension</div>
+              <select class="sel" id="asc-sel">
                 <option value="">All</option>
-                <option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
+                ${Array.from({ length: 11 }, (_, i) =>
+                  `<option value="${i}" ${S.ascension === String(i) ? 'selected' : ''}>${i}</option>`
+                ).join('')}
               </select>
             </div>
-            <button type="submit" id="search-btn" class="btn btn-primary">Search</button>
-            <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
-          </form>
+          </div>
+          <div class="summary-strip">
+            <span><span class="sv">${data.total}</span> runs</span>
+            <span class="dot">·</span>
+            <span><span class="sv">${data.wins}</span> wins</span>
+            <span class="dot">·</span>
+            <span><span class="sv">${wr}%</span> win rate</span>
+          </div>
+          <div class="run-list" id="run-list">${rows}</div>
+          ${pager}
+        </div>`);
 
-          <div id="results" class="mt-4"></div>
-        </div>
-      </div>
-    </div>
+      bindRuns(data.items);
+    }
 
-    <script>
-      // ── Dark mode ─────────────────────────────────────────────
-      const themeToggle = document.getElementById('theme-toggle');
-      themeToggle.checked = document.documentElement.getAttribute('data-theme') === 'dark';
-      themeToggle.addEventListener('change', () => {
-        const theme = themeToggle.checked ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
-      });
+    function runRowHtml(r) {
+      const char = r.character || null;
+      const charHtml = char
+        ? `${charBadgeHtml(char)}<div><div class="char-name">${esc(charLabel(char))}</div><div class="char-sub">Build ${esc(r.build_id)}</div></div>`
+        : `<div><div class="char-name">Run #${r.id}</div><div class="char-sub">Build ${esc(r.build_id)}</div></div>`;
+      const open = S.openRunIds.has(r.id);
+      return `
+        <div class="run-row ${open ? 'open' : ''}" data-run-id="${r.id}">
+          <div class="run-summary">
+            <div class="run-id">#${String(r.id).padStart(3, '0')}</div>
+            <div class="run-char-cell">${charHtml}</div>
+            <div class="asc-pill">A${r.ascension}</div>
+            <div class="result-pill ${r.win ? 'win' : 'loss'}">${r.win ? 'Win' : 'Loss'}</div>
+            <div class="run-meta-col">
+              <div class="run-build">${esc(r.build_id)}</div>
+              <div class="run-mode">${r.player_count === 1 ? 'Solo' : 'Co-op'}</div>
+            </div>
+            <div class="chevron">▶</div>
+          </div>
+          <div class="run-detail-slot" style="${open ? '' : 'display:none'}">
+            ${open ? '<div class="run-detail"><div class="detail-loading">Loading…</div></div>' : ''}
+          </div>
+        </div>`;
+    }
 
-      function esc(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      }
-
-      function stripPrefix(s) {
-        return String(s).replace(/^[^.]+\./, '');
-      }
-
-      function displayCard(id) {
-        const name = stripPrefix(id).replace(/^(STRIKE|DEFEND)_\w+$/i, '$1');
-        return name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      }
-
-      // ── Upload dialog ──────────────────────────────────────────
-      const dialog = document.getElementById('upload-dialog');
-      const dropZone = document.getElementById('drop-zone');
-      const fileInput = document.getElementById('run-file');
-      const dropLabel = document.getElementById('drop-label');
-      let selectedFiles = [];
-
-      function updateDropLabel() {
-        dropLabel.textContent = selectedFiles.length > 0
-          ? `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} selected`
-          : '';
-        if (selectedFiles.length === 0) {
-          dropLabel.innerHTML = 'Drag &amp; drop .run files here, or <span class="text-primary underline">click to browse</span>';
-        }
-      }
-
-      dropZone.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', () => {
-        selectedFiles = Array.from(fileInput.files);
-        updateDropLabel();
-      });
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('border-primary', 'bg-base-200');
-      });
-      dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('border-primary', 'bg-base-200');
-      });
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('border-primary', 'bg-base-200');
-        selectedFiles = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.run'));
-        updateDropLabel();
-      });
-
-      document.getElementById('open-dialog').addEventListener('click', () => {
-        document.getElementById('status').textContent = '';
-        const uploadError = document.getElementById('upload-error');
-        uploadError.textContent = '';
-        uploadError.classList.add('hidden');
-        selectedFiles = [];
-        updateDropLabel();
-        dialog.showModal();
-      });
-
-      document.getElementById('cancel-upload').addEventListener('click', () => dialog.close());
-
-      document.getElementById('confirm-upload').addEventListener('click', async () => {
-        const files = selectedFiles;
-        const status = document.getElementById('status');
-        const uploadError = document.getElementById('upload-error');
-        if (files.length === 0) return;
-
-        uploadError.textContent = '';
-        uploadError.classList.add('hidden');
-
-        try {
-          const runs = await Promise.all(files.map(f => f.text().then(JSON.parse)));
-          const resp = await fetch('/api/v1/runs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(runs),
-          });
-          if (resp.ok) {
-            const { ids } = await resp.json();
-            status.className = 'mt-3 text-sm text-success';
-            status.textContent = `Uploaded ${ids.length} run${ids.length === 1 ? '' : 's'} — ID${ids.length === 1 ? '' : 's'} ${ids.join(', ')}`;
-            dialog.close();
+    function bindRuns(items) {
+      // Row expand/collapse
+      document.querySelectorAll('#run-list .run-row').forEach(row => {
+        row.querySelector('.run-summary').addEventListener('click', async () => {
+          const id = Number(row.dataset.runId);
+          const slot = row.querySelector('.run-detail-slot');
+          if (S.openRunIds.has(id)) {
+            S.openRunIds.delete(id);
+            row.classList.remove('open');
+            slot.style.display = 'none';
+            slot.innerHTML = '';
           } else {
-            const text = await resp.text();
-            uploadError.textContent = `Upload failed (${resp.status}): ${text}`;
-            uploadError.classList.remove('hidden');
+            S.openRunIds.add(id);
+            row.classList.add('open');
+            slot.style.display = '';
+            slot.innerHTML = '<div class="run-detail"><div class="detail-loading">Loading…</div></div>';
+            try {
+              const run = await apiFetch(`/runs/${id}`);
+              slot.innerHTML = runDetailHtml(run);
+              bindRunDetail(slot, run);
+            } catch (e) {
+              slot.innerHTML = `<div class="run-detail" style="color:var(--loss)">Failed to load: ${esc(e.message)}</div>`;
+            }
           }
-        } catch (err) {
-          uploadError.textContent = `Upload failed: ${err.message}`;
-          uploadError.classList.remove('hidden');
-        }
+        });
       });
 
-      // ── Cards tag-input ───────────────────────────────────────
-      let allCards = [];
-      let selectedCardIds = new Set();
+      // Card filter
+      const input    = document.getElementById('card-search');
+      const drop     = document.getElementById('card-drop');
+      const tagsEl   = document.getElementById('card-tags');
+      const filterBox = document.getElementById('card-filter-box');
 
-      async function populateCards() {
-        try {
-          allCards = await fetch('/api/v1/cards').then(r => r.json());
-        } catch {
-          allCards = [];
-        }
-      }
+      filterBox.addEventListener('click', () => input.focus());
 
-      function renderCardBadges() {
-        const badges = document.getElementById('card-badges');
-        badges.innerHTML = Array.from(selectedCardIds).map(id => `
-          <span class="badge badge-primary gap-1 text-xs whitespace-nowrap">
-            ${esc(displayCard(id))}
-            <button type="button" data-remove="${esc(id)}" class="hover:opacity-70 cursor-pointer">✕</button>
-          </span>`).join('');
-        badges.querySelectorAll('button[data-remove]').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectedCardIds.delete(btn.dataset.remove);
-            renderCardBadges();
-            loadPage(0);
-          });
-        });
-      }
-
-      function renderCardDropdown(q) {
-        const dropdown = document.getElementById('cards-dropdown');
-        const filtered = allCards.filter(c =>
-          !selectedCardIds.has(c) &&
-          (q === '' || c.toLowerCase().includes(q) || displayCard(c).toLowerCase().includes(q))
-        );
-        if (filtered.length === 0) { dropdown.classList.add('hidden'); return; }
-        dropdown.innerHTML = filtered.map(c =>
-          `<li><a class="text-sm" data-card-id="${esc(c)}">${esc(displayCard(c))}</a></li>`
+      function renderDrop(q) {
+        const filtered = S.allCards.filter(c =>
+          !S.cards.has(c) && (!q || displayCard(c).toLowerCase().includes(q.toLowerCase()) || c.toLowerCase().includes(q.toLowerCase()))
+        ).slice(0, 24);
+        if (!filtered.length) { drop.classList.remove('open'); return; }
+        drop.innerHTML = filtered.map(c =>
+          `<div class="cdrop-item" data-card="${esc(c)}">${esc(displayCard(c))}</div>`
         ).join('');
-        dropdown.querySelectorAll('[data-card-id]').forEach(el => {
-          el.addEventListener('mousedown', (e) => {
+        drop.classList.add('open');
+        drop.querySelectorAll('.cdrop-item').forEach(el => {
+          el.addEventListener('mousedown', e => {
             e.preventDefault();
-            selectedCardIds.add(el.dataset.cardId);
-            renderCardBadges();
-            document.getElementById('cards-search').value = '';
-            renderCardDropdown('');
-            loadPage(0);
+            S.cards.add(el.dataset.card);
+            input.value = '';
+            S.offset = 0;
+            renderRuns();
           });
         });
-        dropdown.classList.remove('hidden');
       }
 
-      const cardsSearchInput = document.getElementById('cards-search');
-      document.getElementById('card-filter-box').addEventListener('click', () => cardsSearchInput.focus());
-      cardsSearchInput.addEventListener('focus', () => renderCardDropdown(cardsSearchInput.value.toLowerCase()));
-      cardsSearchInput.addEventListener('input', (e) => renderCardDropdown(e.target.value.toLowerCase()));
-      cardsSearchInput.addEventListener('blur', () => setTimeout(() => document.getElementById('cards-dropdown').classList.add('hidden'), 150));
+      input.addEventListener('focus', () => renderDrop(input.value));
+      input.addEventListener('input', () => renderDrop(input.value));
+      input.addEventListener('blur', () => setTimeout(() => drop.classList.remove('open'), 160));
 
-      async function populateAscensionCounts() {
-        try {
-          const data = await fetch('/api/v1/ascensions').then(r => r.json());
-          const countMap = Object.fromEntries(data.map(d => [String(d.ascension), d.count]));
-          Array.from(document.getElementById('ascension-select').options).forEach(o => {
-            if (o.value !== '') {
-              const count = countMap[o.value];
-              o.textContent = count !== undefined ? `${o.value} (${count})` : o.value;
-            }
-          });
-        } catch {
-          // leave options as-is
-        }
-      }
-      populateAscensionCounts();
-
-      const { cards: initialCards, offset: initialOffset } = restoreFilters();
-      populateCards().then(() => {
-        initialCards.forEach(c => selectedCardIds.add(c));
-        renderCardBadges();
-        loadPage(initialOffset);
-      });
-
-      // also refresh after a successful upload so new cards appear
-      document.getElementById('confirm-upload').addEventListener('click', () => {
-        setTimeout(populateCards, 500);
-      }, { capture: true });
-
-      // ── Query form ─────────────────────────────────────────────
-      const PAGE_SIZE = 20;
-
-      async function fetchRuns(offset = 0) {
-        const cards = Array.from(selectedCardIds);
-        const mode = document.getElementById('mode-select').value;
-        const result = document.getElementById('result-select').value;
-        const ascension = document.getElementById('ascension-select').value;
-
-        const filterParams = new URLSearchParams({ mode, result });
-        cards.forEach(c => filterParams.append('cards', c));
-        if (ascension !== '') filterParams.append('ascension', ascension);
-        if (offset > 0) filterParams.set('offset', offset);
-        history.replaceState({}, '', `?${filterParams}`);
-
-        const params = new URLSearchParams(filterParams);
-        params.set('limit', PAGE_SIZE);
-        params.set('offset', offset);
-
-        const resp = await fetch(`/api/v1/runs?${params}`);
-        if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-        return resp.json();
-      }
-
-      function restoreFilters() {
-        const p = new URLSearchParams(window.location.search);
-        const mode = p.get('mode');
-        if (mode) document.getElementById('mode-select').value = mode;
-        const result = p.get('result');
-        if (result) document.getElementById('result-select').value = result;
-        const ascension = p.get('ascension');
-        if (ascension !== null) document.getElementById('ascension-select').value = ascension;
-        return { cards: p.getAll('cards'), offset: parseInt(p.get('offset') ?? '0', 10) };
-      }
-
-      function renderResults(data, offset) {
-        const container = document.getElementById('results');
-        if (data.items.length === 0) {
-          container.innerHTML = '<p class="text-base-content/60">No runs found.</p>';
-          return;
-        }
-
-        const pct = data.total > 0 ? Math.round(data.wins / data.total * 100) : 0;
-        const statsHtml = `<p class="text-sm mb-3">${data.wins} / ${data.total} wins (${pct}%)</p>`;
-
-        const rows = data.items.map(r => `
-          <tr class="cursor-pointer" data-run-id="${r.id}">
-            <td>${r.id}</td>
-            <td>${r.ascension}</td>
-            <td><span class="badge ${r.win ? 'badge-success' : 'badge-error'}">${r.win ? 'Win' : 'Loss'}</span></td>
-            <td>${r.player_count === 1 ? 'Single' : 'Multi'}</td>
-          </tr>
-        `).join('');
-
-        container.innerHTML = statsHtml + `
-          <div class="overflow-x-auto">
-            <table class="table table-zebra">
-              <thead><tr><th>ID</th><th>Ascension</th><th>Result</th><th>Mode</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-          <div class="flex gap-2 items-center mt-3 text-sm">
-            <button id="prev-btn" class="btn btn-sm btn-ghost" ${offset === 0 ? 'disabled' : ''}>← Prev</button>
-            <span class="text-base-content/60">Showing ${offset + 1}–${offset + data.items.length} of ${data.total}</span>
-            <button id="next-btn" class="btn btn-sm btn-ghost" ${data.items.length < PAGE_SIZE ? 'disabled' : ''}>Next →</button>
-          </div>
-        `;
-
-        document.getElementById('prev-btn').addEventListener('click', () => loadPage(offset - PAGE_SIZE));
-        document.getElementById('next-btn').addEventListener('click', () => loadPage(offset + PAGE_SIZE));
-
-        document.querySelectorAll('tbody tr[data-run-id]').forEach(row => {
-          row.addEventListener('click', () => {
-            const runId = row.dataset.runId;
-            if (openDetailRunId === runId) {
-              openDetailRunId = null;
-              document.getElementById(`detail-${runId}`)?.remove();
-            } else {
-              openDetailRunId = runId;
-              expandDetail(row, runId);
-            }
-          });
+      // Tag remove buttons
+      document.querySelectorAll('.ctag-rm').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          S.cards.delete(btn.dataset.card);
+          S.offset = 0;
+          renderRuns();
         });
-
-        if (openDetailRunId !== null) {
-          const row = document.querySelector(`tbody tr[data-run-id="${openDetailRunId}"]`);
-          if (row) expandDetail(row, openDetailRunId);
-        }
-      }
-
-      let openDetailRunId = null;
-
-      async function expandDetail(row, runId) {
-        document.querySelectorAll('tr.detail-row').forEach(r => r.remove());
-        const detailRow = document.createElement('tr');
-        detailRow.id = `detail-${runId}`;
-        detailRow.className = 'detail-row';
-        detailRow.innerHTML = '<td colspan="4" class="py-2"><span class="loading loading-spinner loading-xs"></span></td>';
-        row.after(detailRow);
-        try {
-          const run = await fetch(`/api/v1/runs/${runId}`).then(r => r.json());
-          const players = run.players.map(p => {
-            const groups = p.deck.reduce((acc, c) => {
-              if (acc.length && acc[acc.length - 1].id === c.id) acc[acc.length - 1].n++;
-              else acc.push({ id: c.id, n: 1 });
-              return acc;
-            }, []);
-            const cardBtns = groups.map(({ id, n }) => {
-              const active = selectedCardIds.has(id) ? 'btn-primary' : 'btn-outline';
-              const label = n > 1 ? `${esc(displayCard(id))} ×${n}` : esc(displayCard(id));
-              return `<button class="btn btn-xs ${active}" data-card-id="${esc(id)}">${label}</button>`;
-            }).join('');
-            return `<div class="mb-3">
-              <div class="font-medium mb-1">${esc(stripPrefix(p.character))}</div>
-              <div class="flex flex-wrap gap-1">${cardBtns}</div>
-            </div>`;
-          }).join('');
-          const buildLine = `<div class="text-xs text-base-content/60 mb-2">Build: ${esc(run.build_id)}</div>`;
-          detailRow.innerHTML = `<td colspan="4" class="bg-base-200 text-sm py-3 px-4">${buildLine}${players}</td>`;
-          detailRow.querySelectorAll('button[data-card-id]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const cardId = btn.dataset.cardId;
-              if (selectedCardIds.has(cardId)) {
-                selectedCardIds.delete(cardId);
-              } else {
-                selectedCardIds.add(cardId);
-              }
-              renderCardBadges();
-              btn.classList.toggle('btn-primary', selectedCardIds.has(cardId));
-              btn.classList.toggle('btn-outline', !selectedCardIds.has(cardId));
-              loadPage(0);
-            });
-          });
-        } catch {
-          detailRow.innerHTML = '<td colspan="4" class="text-error text-sm">Failed to load details</td>';
-        }
-      }
-
-      async function loadPage(offset) {
-        const btn = document.getElementById('search-btn');
-        btn.disabled = true;
-        document.getElementById('results').innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
-        try {
-          const data = await fetchRuns(offset);
-          renderResults(data, offset);
-        } catch (err) {
-          document.getElementById('results').innerHTML = `<p class="text-error text-sm">Error: ${err.message}</p>`;
-        } finally {
-          btn.disabled = false;
-        }
-      }
-
-      document.getElementById('query-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        loadPage(0);
       });
 
-      document.getElementById('clear-btn').addEventListener('click', () => {
-        selectedCardIds.clear();
-        renderCardBadges();
-        document.getElementById('cards-search').value = '';
-        document.getElementById('mode-select').value = 'single';
-        document.getElementById('result-select').value = 'both';
-        document.getElementById('ascension-select').value = '';
-        loadPage(0);
+      // Selects
+      document.getElementById('result-sel').addEventListener('change', e => {
+        S.result = e.target.value; S.offset = 0; renderRuns();
+      });
+      document.getElementById('asc-sel').addEventListener('change', e => {
+        S.ascension = e.target.value; S.offset = 0; renderRuns();
       });
 
-    </script>
-  </body>
+      // Pagination
+      document.getElementById('prev-btn')?.addEventListener('click', () => {
+        S.offset = Math.max(0, S.offset - PAGE_SIZE); renderRuns();
+      });
+      document.getElementById('next-btn')?.addEventListener('click', () => {
+        S.offset += PAGE_SIZE; renderRuns();
+      });
+    }
+
+    function runDetailHtml(run) {
+      const p = run.players[0]; // primary player
+      const deduped = dedupDeck(p.deck.map(c => c.id));
+      const deckHtml = deduped.map(({ name, count }) =>
+        `<button class="cpill ${S.cards.has(name) ? 'selected' : ''}" data-card="${esc(name)}">${esc(displayCard(name))}${count > 1 ? `<span class="cx">×${count}</span>` : ''}</button>`
+      ).join('');
+      const relicsHtml = p.relics.map(r => `<span class="rtag">${esc(r.id)}</span>`).join('');
+      const secs = run.run_time ?? 0;
+      const mins = Math.floor(secs / 60);
+      const timeStr = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+      const date = run.start_time ? fmtDate(run.start_time) : '—';
+      return `
+        <div class="run-detail">
+          <div class="detail-section">
+            <div class="detail-title">Deck — ${p.deck.length} cards</div>
+            <div class="deck-grid">${deckHtml}</div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-title">Relics — ${p.relics.length}</div>
+            <div class="relics-row">${relicsHtml}</div>
+          </div>
+          <div class="detail-footer">
+            <span>Build<span class="dv">${esc(run.build_id)}</span></span>
+            <span>Time<span class="dv">${timeStr}</span></span>
+            <span>Date<span class="dv">${date}</span></span>
+            <span>Mode<span class="dv">${run.players.length === 1 ? 'Solo' : 'Co-op'}</span></span>
+          </div>
+        </div>`;
+    }
+
+    function bindRunDetail(container, run) {
+      container.querySelectorAll('.cpill[data-card]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const card = btn.dataset.card;
+          if (S.cards.has(card)) S.cards.delete(card);
+          else S.cards.add(card);
+          S.offset = 0;
+          renderRuns();
+        });
+      });
+    }
+
+    // ── Stats page ─────────────────────────────────────────
+    async function renderStats() {
+      // Fetch paginated runs for the focused character (client-side filter if no backend support)
+      const allRuns = await loadAllRuns();
+      const runs = S.char ? allRuns.filter(r => r.character === S.char) : allRuns;
+      const total = runs.length;
+      const wins  = runs.filter(r => r.win).length;
+      const wr    = total ? Math.round(wins / total * 100) : 0;
+      const col   = S.char ? charColor(S.char) : 'var(--accent)';
+
+      // Win rate by ascension
+      const ascMap = {};
+      runs.forEach(r => {
+        if (!ascMap[r.ascension]) ascMap[r.ascension] = { t: 0, w: 0 };
+        ascMap[r.ascension].t++;
+        if (r.win) ascMap[r.ascension].w++;
+      });
+      const ascData = Object.entries(ascMap)
+        .map(([a, d]) => ({ asc: +a, rate: Math.round(d.w / d.t * 100), t: d.t }))
+        .sort((a, b) => a.asc - b.asc);
+      const ascChart = ascData.map(d => `
+        <div class="bar-row">
+          <div class="bar-lbl">A${d.asc}</div>
+          <div class="bar-track"><div class="bar-fill green" style="width:${d.rate}%"></div></div>
+          <div class="bar-val">${d.rate}%</div>
+        </div>`).join('');
+
+      // Note: detailed card stats require full run data (deck is not in RunSummary).
+      // The charts below will be empty until you either:
+      //   a) Add deck summary to RunSummary, or
+      //   b) Fetch individual run details (expensive for large datasets).
+
+      setMain(`
+        ${pageHeader(`${S.char ? charLabel(S.char) : 'All'} — Statistics`, `${total} runs`)}
+        <div class="page-body">
+          <div class="stat-cards-row">
+            <div class="sc" style="border-top:2px solid ${col}">
+              <div class="slabel">Total Runs</div>
+              <div class="sval">${total}</div>
+              <div class="ssub">${S.char ?? 'All characters'}</div>
+            </div>
+            <div class="sc" style="border-top:2px solid ${col}">
+              <div class="slabel">Win Rate</div>
+              <div class="sval" style="color:var(--win)">${wr}%</div>
+              <div class="ssub">${wins} wins · ${total - wins} losses</div>
+            </div>
+            <div class="sc" style="border-top:2px solid ${col}">
+              <div class="slabel">Avg Ascension</div>
+              <div class="sval">${total ? (runs.reduce((s, r) => s + r.ascension, 0) / total).toFixed(1) : '—'}</div>
+              <div class="ssub">A${total ? Math.max(...runs.map(r => r.ascension)) : '—'} highest</div>
+            </div>
+          </div>
+          <div class="charts-grid">
+            <div class="cc">
+              <div class="cc-title">Win Rate by Ascension</div>
+              ${ascChart || '<div style="color:var(--dim);font-size:12px">No data</div>'}
+            </div>
+            <div class="cc" style="color:var(--dim);font-size:12px">
+              <div class="cc-title">Top Cards</div>
+              Card frequency stats require deck data in RunSummary (backend update needed), or
+              fetching individual run details. See the comment at the top of index.astro.
+            </div>
+          </div>
+        </div>`);
+    }
+
+    // ── Upload page ────────────────────────────────────────
+    function renderUpload() {
+      setMain(`
+        ${pageHeader('Upload Runs', 'Import .run files from your Slay the Spire 2 save directory')}
+        <div class="page-body">
+          <div class="upload-zone" id="drop-zone">
+            <div class="up-icon">↑</div>
+            <div class="up-title" id="up-title">Drop .run files here</div>
+            <div class="up-sub" id="up-sub">Drag and drop, or click to browse. Supports multiple files.</div>
+            <div class="up-actions">
+              <button class="btn-outline" id="browse-btn">Choose files…</button>
+              <button class="btn-accent" id="upload-btn" style="display:none">Upload</button>
+            </div>
+            <input type="file" id="file-input" accept=".run" multiple style="display:none" />
+          </div>
+          <div class="up-status" id="up-status"></div>
+        </div>`);
+
+      let selectedFiles = [];
+      const zone      = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-input');
+      const upTitle   = document.getElementById('up-title');
+      const upSub     = document.getElementById('up-sub');
+      const uploadBtn = document.getElementById('upload-btn');
+      const status    = document.getElementById('up-status');
+
+      function updateUI() {
+        upTitle.textContent = selectedFiles.length
+          ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} ready`
+          : 'Drop .run files here';
+        upSub.textContent = selectedFiles.length
+          ? selectedFiles.map(f => f.name).join(', ')
+          : 'Drag and drop, or click to browse.';
+        uploadBtn.style.display = selectedFiles.length ? '' : 'none';
+      }
+
+      zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('drag');
+        selectedFiles = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.run'));
+        updateUI();
+      });
+      document.getElementById('browse-btn').addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => { selectedFiles = Array.from(fileInput.files); updateUI(); });
+
+      uploadBtn.addEventListener('click', async () => {
+        if (!selectedFiles.length) return;
+        status.textContent = `Parsing ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}…`;
+        status.style.color = 'var(--dim)';
+        try {
+          const runs = await Promise.all(selectedFiles.map(f => f.text().then(JSON.parse)));
+          const { ids } = await apiPost('/runs', runs);
+          status.textContent = `Uploaded ${ids.length} run${ids.length > 1 ? 's' : ''} — IDs: ${ids.join(', ')}`;
+          status.style.color = 'var(--win)';
+          selectedFiles = [];
+          updateUI();
+          S._runCache = null; // invalidate cache
+        } catch (e) {
+          status.textContent = `Error: ${e.message}`;
+          status.style.color = 'var(--loss)';
+        }
+      });
+    }
+
+    // ── Init ───────────────────────────────────────────────
+    async function init() {
+      // Restore theme
+      const savedTheme = document.cookie.split('; ').find(r => r.startsWith('theme='))?.split('=')[1];
+      setTheme(savedTheme ? savedTheme === 'dark' : true);
+
+      // Theme toggle
+      document.getElementById('theme-toggle').addEventListener('click', () => setTheme(!S.dark));
+
+      // Sidebar navigation
+      document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+        el.addEventListener('click', e => {
+          e.preventDefault();
+          navigate(el.dataset.page);
+        });
+      });
+
+      // Load card list for autocomplete
+      try {
+        S.allCards = await apiFetch('/cards');
+      } catch (_) { /* non-fatal */ }
+
+      // Initial page
+      await renderPage().catch(err => {
+        document.getElementById('main').innerHTML =
+          `<div class="error-state">Error: ${esc(err.message)}</div>`;
+      });
+    }
+
+    init();
+  </script>
+</body>
 </html>
