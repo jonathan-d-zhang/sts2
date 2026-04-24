@@ -591,8 +591,11 @@ import '../styles/global.css';
 
     // ── Stats page ─────────────────────────────────────────
     async function renderStats() {
-      // Fetch paginated runs for the focused character (client-side filter if no backend support)
-      const allRuns = await loadAllRuns();
+      const charParam = S.char ? `?character=${encodeURIComponent(S.char)}` : '';
+      const [allRuns, topCardsData] = await Promise.all([
+        loadAllRuns(),
+        apiFetch(`/top-cards${charParam}`),
+      ]);
       const runs = S.char ? allRuns.filter(r => r.character === S.char) : allRuns;
       const total = runs.length;
       const wins  = runs.filter(r => r.win).length;
@@ -615,6 +618,18 @@ import '../styles/global.css';
           <div class="bar-track"><div class="bar-fill green" style="width:${d.rate}%"></div></div>
           <div class="bar-val">${d.rate}%</div>
         </div>`).join('');
+
+      // Top cards by pick count
+      const maxPicks = topCardsData[0]?.picks || 1;
+      const topCardsChart = topCardsData.map(c => {
+        const wr2 = c.picks ? Math.round(c.wins / c.picks * 100) : 0;
+        return `
+        <div class="bar-row">
+          <div class="bar-lbl wide">${esc(displayCard(c.card_id))}</div>
+          <div class="bar-track"><div class="bar-fill accent" style="width:${c.picks / maxPicks * 100}%"></div></div>
+          <div class="bar-val">${c.picks}</div>
+        </div>`;
+      }).join('');
 
       setMain(`
         ${pageHeader(`${S.char ? charLabel(S.char) : 'All'} — Statistics`, `${total} runs`)}
@@ -642,8 +657,8 @@ import '../styles/global.css';
               ${ascChart || '<div style="color:var(--dim);font-size:12px">No data</div>'}
             </div>
             <div class="cc">
-              <div class="cc-title">Top Cards</div>
-              <div style="color:var(--dim);font-size:12px">No data</div>
+              <div class="cc-title">Top Cards by Picks</div>
+              ${topCardsChart || '<div style="color:var(--dim);font-size:12px">No data</div>'}
             </div>
           </div>
         </div>`);

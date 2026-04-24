@@ -108,6 +108,34 @@ async def list_ascensions() -> list[dict[str, int]]:
     return [{"ascension": r[0], "count": r[1]} for r in rows]
 
 
+@router.get("/top-cards")
+async def top_cards(
+    character: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[dict]:
+    conditions: list[str] = []
+    params: list = []
+    if character is not None:
+        conditions.append("r.data->'players'->0->>'character' = %s")
+        params.append(character)
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.append(limit)
+    query = f"""
+        SELECT unnest(d.card_ids) AS card_id,
+               COUNT(*)::int AS picks,
+               SUM(CASE WHEN r.win THEN 1 ELSE 0 END)::int AS wins
+        FROM decks d
+        JOIN runs r ON r.id = d.run_id
+        {where}
+        GROUP BY card_id
+        ORDER BY picks DESC
+        LIMIT %s
+        """  # noqa: S608
+    async with get_pool().connection() as conn:
+        rows = await (await conn.execute(query, params)).fetchall()
+    return [{"card_id": r[0], "picks": r[1], "wins": r[2]} for r in rows]
+
+
 @router.get("/cards")
 async def list_cards() -> list[str]:
     async with get_pool().connection() as conn:
