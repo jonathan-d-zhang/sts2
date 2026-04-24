@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
-from sts2.database import get_pool
+import sts2.database as _db
 from sts2.models import Run
 
 router = APIRouter(prefix="/api/v1")
@@ -75,7 +75,7 @@ async def list_runs(  # noqa: PLR0913
         ORDER BY r.id DESC
         LIMIT %s OFFSET %s
         """  # noqa: S608
-    async with get_pool().connection() as conn:
+    async with _db.get_pool().connection() as conn:
         rows = await (await conn.execute(query, params)).fetchall()
 
     return RunsPage(
@@ -92,7 +92,7 @@ async def list_runs(  # noqa: PLR0913
 
 @router.get("/runs/{run_id}")
 async def get_run(run_id: int) -> JSONResponse:
-    async with get_pool().connection() as conn:
+    async with _db.get_pool().connection() as conn:
         row = await (await conn.execute("SELECT data FROM runs WHERE id = %s", [run_id])).fetchone()
     if row is None:
         raise HTTPException(status_code=404)
@@ -101,7 +101,7 @@ async def get_run(run_id: int) -> JSONResponse:
 
 @router.get("/ascensions")
 async def list_ascensions() -> list[dict[str, int]]:
-    async with get_pool().connection() as conn:
+    async with _db.get_pool().connection() as conn:
         rows = await (
             await conn.execute("SELECT ascension, COUNT(*)::int FROM runs GROUP BY ascension ORDER BY ascension")
         ).fetchall()
@@ -131,14 +131,14 @@ async def top_cards(
         ORDER BY picks DESC
         LIMIT %s
         """  # noqa: S608
-    async with get_pool().connection() as conn:
+    async with _db.get_pool().connection() as conn:
         rows = await (await conn.execute(query, params)).fetchall()
     return [{"card_id": r[0], "picks": r[1], "wins": r[2]} for r in rows]
 
 
 @router.get("/cards")
 async def list_cards() -> list[str]:
-    async with get_pool().connection() as conn:
+    async with _db.get_pool().connection() as conn:
         rows = await (
             await conn.execute("SELECT DISTINCT unnest(card_ids) AS card_id FROM decks ORDER BY card_id")
         ).fetchall()
@@ -151,7 +151,7 @@ async def create_runs(runs: list[Run]) -> dict[str, list[int]]:
         return {"ids": []}
     placeholders = ", ".join(["(%s, %s, %s, %s)"] * len(runs))
     run_values = [v for run in runs for v in (run.ascension, run.win, run.build_id, Jsonb(run.model_dump(mode="json")))]
-    async with get_pool().connection() as conn, conn.transaction():
+    async with _db.get_pool().connection() as conn, conn.transaction():
         query = f"INSERT INTO runs (ascension, win, build_id, data) VALUES {placeholders} RETURNING id"  # noqa: S608
         ids = [row[0] for row in await (await conn.execute(query, run_values)).fetchall()]
         deck_params = [

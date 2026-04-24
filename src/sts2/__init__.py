@@ -1,10 +1,11 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from sts2.database import close_pool, init_db, open_pool
+import sts2.database as _db
 from sts2.routers.runs import router as runs_router
 
 SITE_DIR = Path(__file__).parent.parent.parent / "site"
@@ -12,11 +13,11 @@ SITE_DIR.mkdir(exist_ok=True)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    await open_pool()
-    await init_db()
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
+    await _db.open_pool()
+    await _db.init_db()
     yield
-    await close_pool()
+    await _db.close_pool()
 
 
 app = FastAPI(lifespan=lifespan)
